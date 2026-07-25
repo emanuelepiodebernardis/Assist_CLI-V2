@@ -52,10 +52,16 @@ evidenze (sandbox, test, mutanti); l'LLM spiega e corregge, non giudica.*
 - [x] Benchmark harness: corpus di 8 bug realistici con test-bugia,
   detection rate 100% (mutante sopravvissuto sulla riga del bug),
   mutation score medio dei test-bugia 44% (`benchmark/run_benchmark.py`)
-- [ ] GitHub App SaaS (webhook PR, coda di verifica, dashboard)
-- [ ] Sandbox containerizzata (Docker/gVisor) per codice non fidato
+- [x] Sandbox containerizzata: `DockerSandboxRunner` (--network=none,
+  limiti cpu/mem, immagine configurabile) con fallback automatico a
+  processo; flag `--docker` e config `verify.use_docker`
+- [x] Design SaaS completo: `docs/saas-architecture.md` (GitHub App,
+  coda, worker containerizzati, modello dati, sicurezza, costi, pricing,
+  piano MVP 4-6 settimane)
+- [x] README prodotto con benchmark reali (detection 100%, mutation
+  score test-bugia 44%)
+- [ ] Implementazione GitHub App SaaS (webhook PR, coda, dashboard)
 - [ ] Secondo linguaggio (TypeScript: mutazione via AST ts-morph, runner vitest/jest)
-- [ ] Pricing: free per open source, per-seat + usage per team
 
 ## Metriche di successo
 

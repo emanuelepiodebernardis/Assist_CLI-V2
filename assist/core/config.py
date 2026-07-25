@@ -23,6 +23,7 @@ class VerifyConfig(BaseModel):
     sandbox_timeout_seconds: int = Field(default=30, ge=1)
     max_mutants: int = Field(default=40, ge=1)
     generate_boundary_tests: bool = True
+    use_docker: bool = False
 
 
 class QualityConfig(BaseModel):

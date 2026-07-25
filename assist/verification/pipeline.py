@@ -19,6 +19,7 @@ from assist.llm.base import LLMClient
 from assist.schemas.models import SemanticAnalysis
 from assist.verification.boundary_agent import BoundaryTestAgent
 from assist.verification.dependency_collector import DependencyCollector
+from assist.verification.docker_sandbox import make_sandbox
 from assist.verification.evidence import (
     EvidenceBundle,
     MutationReport,
@@ -29,7 +30,6 @@ from assist.verification.fix_loop import ValidatedFixLoop
 from assist.verification.judge import EvidenceJudge
 from assist.verification.mutation import MutationEngine
 from assist.verification.pytest_report import parse_junit_xml
-from assist.verification.sandbox import SandboxRunner
 from assist.verification.test_discovery import TestDiscovery
 
 _PYTEST_SUMMARY = re.compile(r"(\d+) (?:failed|error)", re.IGNORECASE)
@@ -47,8 +47,12 @@ class VerificationPipeline:
         generate_boundary_tests: bool = True,
         max_fix_iterations: int = 3,
         audience: str = "dev",
+        use_docker: bool = False,
     ) -> None:
-        self.sandbox = SandboxRunner(timeout_seconds=sandbox_timeout)
+        self.sandbox = make_sandbox(
+            timeout_seconds=sandbox_timeout,
+            prefer_docker=use_docker,
+        )
         self.boundary_agent = BoundaryTestAgent(llm=fast_llm)
         self.mutation_engine = MutationEngine(
             sandbox=self.sandbox,

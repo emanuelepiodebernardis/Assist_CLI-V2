@@ -468,6 +468,16 @@ def verify_command(
             help="Formato report: markdown | pr-comment",
         ),
     ] = "markdown",
+    docker: Annotated[
+        bool,
+        typer.Option(
+            "--docker",
+            help=(
+                "Esegui la sandbox in container Docker "
+                "(fallback a processo se Docker manca)"
+            ),
+        ),
+    ] = False,
     audience: Annotated[
         str,
         typer.Option(
@@ -571,6 +581,7 @@ def verify_command(
         generate_boundary_tests=merged["generate_boundary_tests"],
         max_fix_iterations=merged["max_fix_iterations"],
         audience=audience,
+        use_docker=docker or settings.verify.use_docker,
     )
 
     targets: list[tuple[str, set[int] | None]] = []

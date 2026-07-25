@@ -1,69 +1,71 @@
-﻿# Assist CLI
+# Assist CLI — Proof Engine
 
-A modular command-line coding assistant for Python that combines deterministic
-static analysis with LLM agents under declarative skill constraints.
+AI code is 99% right. The 1% ships to production.
 
-Each command runs through a verifiable pipeline: code analysis produces
-structural facts about your codebase, skills encode quality rules, and
-specialized agents produce output that passes a self-validation loop plus a
-global verification layer before reaching you.
+Proof Engine is the verification layer for AI-generated code: deterministic
+evidence instead of another LLM opinion. It runs your code in a sandbox,
+mutates it, and checks whether your tests actually catch the mutations. The
+LLM explains the verdict and proposes a fix — it never decides the verdict.
 
 ```
-68 tests passing in ~5 seconds. Pipeline validated end-to-end with MockLLM
-and through smoke tests on real LLM calls.
+Verdict = sandbox execution + mutation testing (deterministic evidence)
+Explanation and fix = LLM (strong model), only after the verdict exists
 ```
 
----
-
-## What it does
-
-Seven commands, one specialized agent per task:
-
-| Command | Agent | Purpose |
-| --- | --- | --- |
-| `assist review <file>` | ReviewerAgent | Technical review with concrete fixes |
-| `assist generate <file>` | GeneratorAgent | Generate Python code from a text specification |
-| `assist refactor <file>` | RefactorAgent | Refactor code while preserving observable behavior |
-| `assist explain <file>` | ExplainerAgent | Technical explanation anchored to project context |
-| `assist test <file>` | TestGeneratorAgent | Generate pytest test suite for a target file |
-| `assist diff [range]` | DiffReviewerAgent | Review a git diff (commit, range, or working tree) |
-| `assist repo [path]` | RepoAgent | High-level overview of an entire repository |
-
-Every command produces structured output with:
-
-- A **quality score** (0.0–1.0) computed by a deterministic rubric defined
-  in the applicable skill
-- A **verification table** (syntax, format, coherence, task-aware checks)
-- An **iteration count** showing how many self-correction passes were needed
+Assist CLI also ships the earlier generation of tools it was built on:
+seven LLM-agent commands (`review`, `generate`, `refactor`, `explain`,
+`test`, `diff`, `repo`) with self-validation loops and declarative skills.
+See [Legacy commands](#legacy-commands-review-generate-refactor-explain-test-diff-repo)
+below.
 
 ---
 
-## What it is not
+## Benchmark results
 
-To set the right expectations from the start:
+Numbers from `benchmark/run_benchmark.py`, run against a corpus of 8
+realistic AI-style bugs (off-by-one, wrong boolean logic, missing early
+return, wrong default, missing function call, wrong slice bound, wrong
+arithmetic operator). Each bug ships with an "AI-style" test: a happy-path
+test that **passes** against the buggy code, the way an AI assistant
+tends to write it.
 
-- **Not a chat assistant.** No conversation, no memory between invocations.
-  Each command is an atomic operation with well-defined input and output.
-- **Not a generic LLM wrapper.** Every invocation applies structural
-  constraints, declarative skills, and verifiable quality gates.
-- **Not a linter.** Static analysis is infrastructure, not output. The final
-  result is always produced by an LLM, under constraints.
-- **Not an autonomous agent.** Produces text or code for you to review.
-  Executing changes remains a human decision.
+| Metric | Value |
+| --- | --- |
+| Cases | 8 |
+| Detection rate (bug caught by mutation testing) | **100%** |
+| Average mutation score of the AI-style tests | **44%** |
+
+Detection rate 100% means: on every one of the 8 cases, mutation testing
+produced a surviving mutant that points at the exact bug line, even though
+the existing test suite was green. Average mutation score 44% means: your
+green tests, on average, prove less than half of what you think they do —
+mutation testing kills a mutant on a given line only if a test actually
+exercises the boundary that line represents.
+
+Full per-case table (verdict, mutation score, detection, duration) is in
+[`benchmark/results.md`](benchmark/results.md). Reproduce it locally:
+
+```bash
+python benchmark/run_benchmark.py
+```
+
+This runs with a mock LLM client (`generate_boundary_tests=False`): no API
+calls, only deterministic evidence (existing tests + AST mutation testing).
 
 ---
 
-## Installation
+## Quickstart
 
-Requires Python 3.10+ (tested on 3.13) and an Anthropic API key.
+### Install
 
 ```bash
 git clone https://github.com/emanuelepiodebernardis/Assist_CLI.git
 cd Assist_CLI
-pip install -e .
+pip install -e . pytest anthropic python-dotenv pyyaml
 ```
 
-Set the API key:
+Set the API key (needed for boundary-test generation and the verdict
+explanation, both LLM-assisted steps — the verdict itself is not):
 
 ```bash
 # Linux / macOS
@@ -73,271 +75,225 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 $env:ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-Verify the install:
+### Verify a file
 
 ```bash
-assist --help
+assist verify myfile.py
 ```
 
----
+With no `--tests` flag, `assist verify` auto-discovers the test file using
+pytest conventions (`TestDiscovery`, walking up to the project root). If
+`myfile.py` imports local modules, those are copied into the sandbox
+automatically (`DependencyCollector`) so multi-file projects work without
+extra flags.
 
-## Quick start
+Exit code is CI-friendly: `0` unless the overall verdict is `fail`, so
+`assist verify` can gate a pipeline step directly.
 
-### Review a file
+### More examples
 
 ```bash
-assist review path/to/module.py
+# Verify only the files touched by a diff, mutating only the changed lines
+assist verify --diff HEAD~1
+
+# Explicit baseline test file instead of auto-discovery
+assist verify myfile.py --tests tests/test_myfile.py
+
+# Report in plain language for a non-technical reader (no jargon)
+assist verify myfile.py --audience non-dev
+
+# Export a signed verification certificate (JSON, HMAC-SHA256 if
+# ASSIST_SIGNING_KEY is set)
+assist verify myfile.py --certificate out.json
+
+# Save the markdown report instead of printing it
+assist verify myfile.py -o report.md
+
+# Use the mock provider (no API calls, for local/offline testing)
+assist verify myfile.py --provider mock
 ```
 
-Produces a technical review with `## Sommario`, `## Problemi critici`,
-`## Problemi significativi`, `## Suggerimenti`. The review uses
-static-analysis facts (dead code, cyclic imports, god classes, complexity
-warnings) to ground itself in real findings rather than generic impressions.
-
-### Explain a file
+### Install the automatic hooks
 
 ```bash
-assist explain path/to/module.py --depth brief
+assist install-hooks --pre-commit --claude-code
 ```
 
-Available depth values: `brief`, `verbose`. The explanation covers purpose,
-structure, responsibilities, dependencies, and notable critical points —
-anchored in the project context.
+Installs a git `pre-commit` hook that runs `assist verify` on staged
+Python files (blocks the commit on `fail`), and/or a Claude Code
+`PostToolUse` hook that runs `assist verify` right after every `Edit` /
+`Write`. Details in [`docs/hooks.md`](docs/hooks.md).
 
-### Refactor a file
+### GitHub Action
 
-```bash
-assist refactor path/to/module.py --target readability
-```
-
-Strict behavioral-invariance constraint: the refactor cannot change
-observable behavior. If a bug is found in the original, it is preserved and
-reported in `## Note`, not silently fixed.
-
-### Generate code
-
-```bash
-assist generate output_file.py --prompt "Implement a binary search function for sorted integer lists"
-```
-
-Produces pure Python (no markdown fences) ready to be saved.
-
-### Generate tests
-
-```bash
-assist test path/to/module.py
-```
-
-Produces a pytest test suite for the target file. Tests follow the
-Arrange-Act-Assert pattern, use `pytest.raises` for error cases, prefer
-fixtures and parametrize when applicable. If the original file contains a
-bug, the test preserves the buggy behavior and documents it with a `# BUG:`
-comment instead of silently testing the "correct" behavior.
-
-### Review a git diff
-
-```bash
-# Last commit
-assist diff HEAD
-
-# Last 3 commits
-assist diff HEAD~3
-
-# Range between branches
-assist diff main..feature
-
-# Only staged changes
-assist diff --cached
-```
-
-The output focuses exclusively on the changes introduced by the diff, not
-on the surrounding code. Identifies breaking changes on public symbols
-(verified through cross-file usage analysis), regression risks, and side
-effects not declared in the modified signatures.
-
-### Repository overview
-
-```bash
-# Current directory
-assist repo
-
-# Specific path
-assist repo /path/to/project
-```
-
-Produces a high-level overview of the entire repository: project size,
-architecture (cycles, highly connected files, health score), code health
-(god classes, long methods, complexity warnings, dead functions),
-architectural risks, and actionable recommendations with effort estimates.
-
-Every claim in the overview is anchored to a specific field of the
-aggregated structural context — no invented architectural patterns, no
-moral judgments on the code.
-
-### Output formats
-
-All commands accept:
-
-```
---format terminal   # Rich rendering (default)
---format markdown   # Raw markdown for piping or saving
---format json       # Structured output for tooling
---output report.md  # Save to file instead of stdout
-```
-
-Note: `refactor` uses `--output` for the output file path; all other
-commands use `--output` as well.
-
----
-
-## Example: real output
-
-Here is an excerpt of what `assist repo .` produced when run on the
-project's own codebase (quality score 0.88, 1 iteration):
-
-```
-╭─────────────── Repository Overview ───────────────╮
-│                                                    │
-│ ## Panoramica                                      │
-│                                                    │
-│ Il repository contiene 103 file Python             │
-│ (repository_context.project_size) organizzati nel  │
-│ pacchetto principale assist/ con sotto-pacchetti   │
-│ agents/, cli/, core/, llm/, schemas/, utils/ e     │
-│ skills/. La suite di test è separata in            │
-│ tests/unit/ e tests/integration/. Il conteggio     │
-│ totale delle dipendenze dichiarate è 202.          │
-│                                                    │
-│ ## Architettura                                    │
-│                                                    │
-│ Nessun ciclo di import rilevato. Il file           │
-│ orchestrator.py ha 26 dipendenze dichiarate: è il  │
-│ file con il fan-out più alto del repository e      │
-│ funge da punto di coordinamento centrale.          │
-│ Health score: 0.75.                                │
-│                                                    │
-│ ## Salute del codice                               │
-│                                                    │
-│ God class identificate: 2 (OutputFormatter,        │
-│ PromptBuilder). Una god class è una classe con     │
-│ troppe responsabilità concentrate: rende difficile │
-│ modificare un comportamento senza rischiare        │
-│ regressioni su altri.                              │
-│                                                    │
-│ ...                                                │
-╰────────────────────────────────────────────────────╯
-```
-
-The overview identifies real architectural patterns of the project,
-anchors every claim to a specific data field (`repository_context.project_size`,
-`risk_context`), and produces actionable recommendations with effort
-estimates. It is the kind of overview a new team member would want to read
-in the first 10 minutes after cloning the repo.
-
-The 5 recommendations the system produced have been collected as items in
-[`TECH_DEBT.md`](TECH_DEBT.md). Self-applied diagnostics in action.
+A ready-to-use workflow (`.github/workflows/assist-verify.yml`) runs
+`assist verify --diff` on every pull request and posts (or updates) a PR
+comment with the verdict table and evidence details. Setup and comment
+format documented in [`docs/github-action.md`](docs/github-action.md).
 
 ---
 
 ## How it works
 
-```
-CLI command
-   ↓
-Orchestrator (branches on task type: file / git_range / repo_path)
-   ↓
-Static analysis layer (8 analyzers)
-   ↓
-Registry (resolves agent + skills for the task)
-   ↓
-SkillResolver (loads skills with YAML frontmatter v2.5)
-   ↓
-Agent
-   └─ generate_draft → self_check → correct → self_check → ...
-   ↓
-GlobalVerifier (syntax, non-empty, placeholders, task-aware)
-   ↓
-OutputFormatter (terminal | markdown | json)
-   ↓
-You
-```
-
-### Static analysis layer
-
-Eight analyzers run on every invocation, producing typed Pydantic reports:
-
-- **ProjectScanner** — file enumeration with metadata
-- **ProjectGraphBuilder** — dependency graph at module level
-- **ArchitectureAnalyzer** — cyclic dependency detection
-- **RepositoryHealthAnalyzer** — overall health score (0.0–1.0)
-- **ArchitecturalRiskAnalyzer** — risk classification (fan-out, depth, coupling)
-- **SemanticAnalyzer** — functions, classes, imports, calls per file
-- **CrossFileAnalyzer** — inter-file imports and function calls
-- **CodeQualityAnalyzer** — complexity warnings, dead functions, long methods, god classes
-
-The results are aggregated into a structural context block injected into
-the LLM prompt. For `repo`, the analyzers are applied at the aggregated
-project level rather than to a single target file.
-
-### Self-validation loop
-
-Each agent inherits from `BaseAgent` and implements three methods:
-`generate_draft`, `self_check`, `correct`. The base loop:
+The pipeline (`assist/verification/pipeline.py`) runs in eight steps:
 
 ```
-draft = generate_draft()
-for iteration in 1..max_corrections+1:
-    report = self_check(draft)
-    if report.is_valid: break
-    if iteration == max_corrections+1: break  # final pass: validate, do not correct
-    draft = correct(draft, report)
-return AgentOutput(quality_score=report.quality_score, ...)
+1. Syntax check              ast.parse - fail fast on invalid Python
+2. Semantic analysis         reuses the existing SemanticAnalyzer
+3. Local dependencies        DependencyCollector copies local imports
+                              into the sandbox for multi-file targets
+4. Test discovery            auto-finds the test file if --tests is
+                              not passed (pytest conventions)
+5. Baseline tests in sandbox isolated-process run, timeout, JUnit XML
+                              parsing of the result
+6. Boundary tests (fast)     BoundaryTestAgent generates edge-case
+                              tests with the fast model (haiku tier)
+7. Mutation testing          AST mutators (comparisons, arithmetic,
+                              booleans, off-by-one, slices, early
+                              returns, missing calls, ...), each run
+                              in the sandbox, results cached by
+                              sha256(mutated source + tests + deps);
+                              with --diff, only changed lines are
+                              mutated
+8. Verdict + fix loop        EvidenceJudge turns the evidence into a
+                              pass / warn / fail verdict and an
+                              explanation (strong model); on fail,
+                              ValidatedFixLoop proposes a fix and
+                              re-runs it in the sandbox - a fix is
+                              only shown if it turns the failing
+                              tests green
 ```
 
-Key property: the `quality_score` always reflects the **final** draft, not
-an intermediate one. The reported score is honest about what the user
-actually receives.
+The status (`pass` / `warn` / `fail`) is computed from evidence — test
+results and mutation score against a threshold — before any LLM is
+called for the verdict text. The strong model explains and can fix; it
+does not get a vote on the status.
 
-`max_corrections` is differentiated per agent: code-producing agents
-(Generator, Refactor, TestGenerator) get 2 correction passes; prose
-agents (Reviewer, Explainer, DiffReviewer) get 1; RepoAgent gets 2 given
-the complexity of the structured 5-section output.
+---
 
-### Skills (v2.5 Hybrid Canonical)
+## Why evidence beats opinion
 
-Eight declarative skills in `assist/skills/`:
+Most "AI code review" tools work the same way under the hood: an LLM
+reads the diff and produces an opinion — a list of things it thinks might
+be wrong. That opinion is graded by nothing but itself. There is no
+independent signal telling you whether the LLM actually caught the bug or
+just produced text that sounds like a review. When the code and the
+reviewer are both LLM output, agreement between them proves nothing.
 
-- `project_rules` — Base style and quality rules; injected in every task
-- `code_review` — Output format and severity calibration for reviews
-- `python_generation` — Type hints, docstring style, naming conventions
-- `refactor` — Refactoring patterns and behavioral-invariance protocol
-- `documentation` — Structure for explanations and docstrings
-- `diff_review` — Diff-specific rules: focus on changes, breaking change detection
-- `pytest_generation` — pytest patterns, AAA structure, bug protocol
-- `repository_overview` — Repository-level synthesis, anti-pattern-invention guards
+Proof Engine replaces that opinion with something that can be wrong in a
+falsifiable way: run the code, mutate it, and see if the tests notice. A
+surviving mutant is not an opinion — it is a specific line of code that
+changed behavior without any test failing. That is the same signal a
+human reviewer would look for by hand, produced mechanically and
+consistently on every run.
 
-Every skill has a YAML frontmatter declaring `applies_to`, `priority`,
-`max_output_words`, `conflict_resolution`, `inject_position`,
-`self_check_persona`. Skills aren't generic suggestions to the model —
-they're contracts with explicit conflict-resolution rules and adversarial
-self-check personas.
+The benchmark numbers above are the concrete version of this argument: on
+all 8 cases the existing "AI-style" tests were green, and an LLM reviewer
+skimming the diff has no structural reason to notice the bug. Mutation
+testing found it every time, because it does not read the code for
+plausibility — it checks whether the tests would actually fail if the
+code were wrong.
 
-Each skill follows the v2.5 Hybrid Canonical standard documented in
-[`docs/SKILL_FORMAT.md`](docs/SKILL_FORMAT.md): 9 canonical sections
-(Scope, Posture, Context data, Operational rules, Output format, Examples,
-Absolute constraints, Self-check, Rubric), declarative frontmatter with
-slug-expanded prose, and a binary quality_score rubric with asymmetric
-weights.
+---
 
-### Task-aware verifier
+## Architecture
 
-`GlobalVerifier` runs three universal checks (syntax, non-empty,
-placeholders) but adapts to the task type. For `refactor`, output is
-markdown with an embedded code block — the verifier extracts the fenced
-`python` block before running `ast.parse` on it. For `test`, output is
-expected to be pure pytest code with no markdown fences. For `repo`,
-output is prose markdown with 3 mandatory sections plus 2 conditional
-ones — the verifier checks section headers but does not parse code.
+```
+                        assist verify <file> [--diff <range>]
+                                   |
+                     VerificationPipeline (assist/verification/)
+                                   |
+        +------------+------------+------------+------------------+
+        |            |            |            |                  |
+     syntax      semantic      local deps   test discovery         |
+     (ast)       analysis      (sandbox     (pytest                |
+                               multi-file)  conventions)            |
+        |            |            |            |                  |
+        +------------+------------+------------+------------------+
+                                   |
+                       SandboxRunner (isolated process, timeout)
+                          baseline tests -> boundary tests
+                                   |
+                     MutationEngine (AST mutators + cache)
+                                   |
+                       EvidenceJudge (strong model)
+                        pass / warn / fail + explanation
+                                   |
+                    fail? -> ValidatedFixLoop (strong model)
+                             fix accepted only if sandbox-verified
+                                   |
+        +-----------+-----------+-----------+------------------+
+        |           |           |           |                  |
+    markdown    pr-comment   certificate  telemetry (stderr:
+    report      (GitHub PR   (signed       phase times, LLM
+                 comment)     JSON)         calls, cache hits)
+```
+
+### Commands
+
+| Command | Purpose |
+| --- | --- |
+| `assist verify <file>` | Evidence-based verification (Proof Engine) |
+| `assist install-hooks` | Install pre-commit and/or Claude Code hooks |
+| `assist review <file>` | Technical review with concrete fixes |
+| `assist generate <file>` | Generate Python code from a text specification |
+| `assist refactor <file>` | Refactor code while preserving behavior |
+| `assist explain <file>` | Technical explanation anchored to project context |
+| `assist test <file>` | Generate a pytest test suite for a target file |
+| `assist diff [range]` | Review a git diff (commit, range, working tree) |
+| `assist repo [path]` | High-level overview of an entire repository |
+
+### `assist verify` options
+
+| Option | Values | Purpose |
+| --- | --- | --- |
+| `<file>` (arg) | path | File to verify (omit if using `--diff`) |
+| `--tests`, `-t` | path | Baseline test file (auto-discovery if omitted) |
+| `--diff` | git range | Verify touched files, mutate only changed lines |
+| `--provider` | `anthropic` \| `mock` | LLM provider |
+| `--format` | `markdown` \| `pr-comment` | Report format |
+| `--audience` | `dev` \| `non-dev` | Jargon-free explanations for non-devs |
+| `--output`, `-o` | path | Save the report to a file |
+| `--certificate` | path | Export a signed verification certificate (JSON) |
+
+---
+
+## Legacy commands (review, generate, refactor, explain, test, diff, repo)
+
+Seven commands, one specialized LLM agent per task, predating Proof
+Engine. Each runs through: static analysis (8 analyzers: project
+structure, dependency graph, cycles, health score, architectural risk,
+semantic facts, cross-file usage, code quality) → agent self-validation
+loop (`generate_draft` / `self_check` / `correct`) → `GlobalVerifier`
+(syntax, non-empty, placeholders, task-aware checks) → formatted output.
+
+```bash
+assist review path/to/module.py                 # technical review
+assist explain path/to/module.py --depth brief   # brief | verbose
+assist refactor path/to/module.py --target readability
+assist generate output_file.py --prompt "..."
+assist test path/to/module.py                    # pytest suite
+assist diff HEAD~3                                # or main..feature, --cached
+assist repo .                                     # repository-level overview
+```
+
+All accept `--format terminal|markdown|json` and `--output <path>`. Every
+output carries a quality score (0.0-1.0) from a deterministic rubric, a
+verification table, and the self-correction iteration count that produced
+it. These agents are opinion-producing (they read code and write prose or
+new code); `verify` is evidence-producing. Use `review`/`explain`/`repo`
+to understand and discuss code, use `verify` to decide whether it ships.
+
+Eight declarative skills (`assist/skills/`, YAML frontmatter v2.5) encode
+the rules each agent follows — style, review severity calibration,
+refactor's behavioral-invariance protocol, pytest AAA conventions, and so
+on. Format spec: [`docs/SKILL_FORMAT.md`](docs/SKILL_FORMAT.md).
+
+What it is **not**: a chat assistant (no memory between invocations), a
+generic LLM wrapper (every call applies structural constraints and
+verifiable gates), a linter (static analysis is infrastructure, not the
+final output), or an autonomous agent (it produces text/code for you to
+review — executing changes stays a human decision).
 
 ---
 
@@ -347,26 +303,31 @@ ones — the verifier checks section headers but does not parse code.
 assist-cli/
 ├── assist/
 │   ├── cli/                  # Typer commands and entry point
-│   ├── core/                 # Orchestrator, registry, verifier, analyzers, builders
-│   ├── agents/               # 7 specialized agents (one per task)
-│   ├── llm/                  # LLM client factory and adapters
-│   ├── schemas/              # Pydantic models (TaskInput, AgentOutput, GitDiff, ...)
-│   ├── skills/               # Declarative skills (.md with YAML frontmatter v2.5)
-│   └── utils/                # File I/O and helpers
+│   ├── core/                 # Orchestrator, registry, verifier, analyzers
+│   ├── agents/                # 7 legacy agents (one per task)
+│   ├── llm/                   # LLM client factory and adapters (fast/strong)
+│   ├── schemas/                # Pydantic models
+│   ├── skills/                  # Declarative skills (.md, YAML frontmatter)
+│   ├── utils/                    # File I/O and helpers
+│   └── verification/              # Proof Engine: sandbox, mutation, judge,
+│                                    fix loop, certificate, hooks, telemetry
+├── benchmark/
+│   ├── corpus/                # 8 realistic-bug cases with AI-style tests
+│   ├── run_benchmark.py
+│   └── results.md
 ├── config/
-│   ├── registry.yaml         # Command → agent + skills mapping
-│   └── settings.yaml         # Model, temperature, quality threshold
+│   ├── registry.yaml          # Command -> agent + skills mapping
+│   └── settings.yaml          # Models (fast/strong), thresholds
 ├── docs/
-│   └── SKILL_FORMAT.md       # v2.5 Hybrid Canonical specification
-├── tests/
-│   ├── integration/          # End-to-end pipeline tests (6 tests)
-│   └── unit/                 # Component-level tests (62 tests)
-├── pyproject.toml
-├── TECH_DEBT.md              # Known limitations and v0.3.0 roadmap items
+│   ├── SKILL_FORMAT.md
+│   ├── hooks.md
+│   ├── github-action.md
+│   └── saas-architecture.md   # Phase 3 SaaS design
+├── .github/workflows/assist-verify.yml
+├── tests/                     # 294 tests, unit + integration
+├── ROADMAP.md
 └── README.md
 ```
-
----
 
 ## Testing
 
@@ -374,107 +335,24 @@ assist-cli/
 pytest
 ```
 
-The 68 tests cover:
+294 tests, no flaky tests, no API calls required (mock LLM clients and a
+`MockLLMClient` for the benchmark). Run with coverage: `pytest --cov=assist`.
 
-- **Integration tests** (6) — end-to-end pipelines (review, generate,
-  refactor, test, diff, repo) with a `SequencedMockLLM` that simulates the
-  self-validation loop deterministically. Shared analyzer fixtures live
-  in `tests/integration/conftest.py`.
-- **Agent unit tests** (21) — three tests per agent for `generate_draft`,
-  `self_check`, `correct` in isolation, with prompt-construction
-  verification.
-- **Core unit tests** (30+) — one per analyzer, plus verifier,
-  prompt_builder, prompt_context_builder, registry, skill_resolver,
-  git_diff_extractor.
-- **Schema tests** (4) — Pydantic model contracts.
-- **Utility tests** (10+) — file readers, file metadata, mock LLM client.
-- **CLI smoke test** (1).
+## Roadmap and further reading
 
-All tests run without API calls thanks to mock LLM clients. Total runtime
-is under 6 seconds.
-
-To run with coverage:
-
-```bash
-pytest --cov=assist
-```
-
----
+- [`ROADMAP.md`](ROADMAP.md) — phased plan from Assist CLI to Proof Engine
+- [`docs/hooks.md`](docs/hooks.md) — pre-commit and Claude Code hooks
+- [`docs/github-action.md`](docs/github-action.md) — PR verification workflow
+- [`docs/saas-architecture.md`](docs/saas-architecture.md) — Phase 3 SaaS design
+- [`TECH_DEBT.md`](TECH_DEBT.md) — known limitations, severity, workarounds
 
 ## Tech stack
 
-- **Python 3.10+** (tested on 3.13)
-- **Typer** — CLI framework
-- **Pydantic v2** — typed data contracts between modules
-- **Rich** — terminal rendering (panels, tables, syntax highlighting)
-- **PyYAML** — registry and skill frontmatter parsing
-- **Anthropic SDK** — LLM client (Claude)
-- **pytest** — testing framework
-
----
-
-## Status
-
-Personal project, version **0.2.0**.
-
-What works (validated end-to-end with real LLM calls):
-
-- All 7 commands functional with quality scores ≥ 0.85 on typical input
-- All 8 skills migrated to v2.5 Hybrid Canonical standard
-- 68 tests green, no flaky tests
-- Self-validation loop converges in 1-2 iterations on the happy path
-- Static analysis layer aggregates correctly at both file and repository scope
-
-What's planned for **0.3.0**:
-
-- Configuration-driven agents: read skill frontmatter and apply settings
-  automatically (max_tokens, persona, inject position)
-- `FileReader` robustness on non-UTF-8 files
-- `SkillResolver` package-relative path resolution (currently CWD-dependent)
-- `Rich Console` output bypass on Windows pipe redirection
-- Caching of static analysis results between consecutive invocations on
-  the same file
-
-See [`TECH_DEBT.md`](TECH_DEBT.md) for the full inventory of known
-limitations with severity, area, proposed solutions, and current
-workarounds. 13 open items, 2 resolved during 0.2.0.
-
----
-
-## Known limitations
-
-Honest about what the system does not do well right now (full details in
-[`TECH_DEBT.md`](TECH_DEBT.md)):
-
-- **Large projects (500+ files)** — `assist repo` scans every Python file
-  in the project to aggregate code-quality metrics. On large codebases
-  this adds 30-60s of latency before the LLM call.
-- **Non-UTF-8 files** — `FileReader` raises `UnicodeDecodeError` on files
-  not encoded as UTF-8. A single bad file can break the project scan for
-  most tasks (mitigated in `repo` by silent skipping).
-- **Windows output piping** — Rich Console fails on Unicode characters
-  when stdout is redirected. Workaround documented in `TECH_DEBT.md`
-  section 3.1.
-- **CWD-dependent CLI** — `assist` must be invoked from the repository
-  root because `SkillResolver` resolves paths relative to the current
-  directory.
-- **Rate limits** — Prompts can be large (15-25k tokens for medium files
-  on `diff` and `repo`); the Anthropic API rate limit of 30k tokens/min
-  is easy to hit on consecutive invocations.
-- **Python only** — Analyzers are Python-specific, though the skill
-  machinery is language-agnostic.
-- **Single LLM provider** — Currently only Anthropic; the `LLMFactory` is
-  designed to be extended.
-
-None of these are blockers for typical use on medium-sized projects.
-
----
+Python 3.10+, Typer, Pydantic v2, Rich, PyYAML, Anthropic SDK, pytest.
 
 ## License
 
 MIT — see `LICENSE` for details.
-
----
 
 ## Author
 
