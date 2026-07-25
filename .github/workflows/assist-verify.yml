@@ -1,0 +1,123 @@
+# Assist Proof Engine — verifica automatica delle pull request.
+#
+# Ad ogni PR aperta o aggiornata verso `main`, questo workflow esegue
+# `assist verify --diff` sui file Python toccati dal branch, genera un
+# report markdown (formato "pr-comment") e lo pubblica come commento
+# sulla PR. Il job fallisce solo se il verdetto complessivo e' "fail"
+# (test rossi o fix non validato): un mutation score basso ("warn")
+# non blocca la pipeline, serve solo da segnale.
+name: Assist Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# Permessi minimi necessari: leggere il codice e scrivere il commento
+# sulla pull request.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    name: Verifica con Assist Proof Engine
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 serve perche' `--diff origin/<base>...HEAD`
+      # deve poter confrontare con la history completa del branch
+      # di base, non solo con l'ultimo commit.
+      - name: Checkout del repository (history completa)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Installa il pacchetto in modalita' editabile piu' le
+      # dipendenze necessarie alla pipeline di verifica (client LLM,
+      # config YAML, test runner).
+      - name: Installa Assist CLI e dipendenze
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest anthropic python-dotenv pyyaml
+
+      # Esegue la verifica solo sui file Python cambiati rispetto al
+      # branch di base della PR. `continue-on-error: true` permette
+      # di postare comunque il commento anche quando il verdetto e'
+      # "fail" (altrimenti lo step interromperebbe subito il job e
+      # non arriveremmo mai a pubblicare il report). L'esito reale
+      # viene controllato nell'ultimo step tramite l'outcome di
+      # questo step.
+      - name: Esegui assist verify sul diff della PR
+        id: assist_verify
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -m assist.cli.main verify \
+            --diff "origin/${{ github.base_ref }}...HEAD" \
+            --provider anthropic \
+            --format pr-comment \
+            -o /tmp/assist_comment.md
+
+      # Pubblica (o aggiorna) il commento sulla PR con il report
+      # generato. Cerca un commento esistente creato da questo
+      # workflow (riconoscibile dal testo "Assist Proof Engine") e lo
+      # sovrascrive, cosi' da non accumulare un commento per ogni
+      # push sulla stessa PR.
+      - name: Pubblica o aggiorna il commento sulla PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+
+            const commentPath = "/tmp/assist_comment.md";
+            const marker = "Assist Proof Engine";
+
+            let body;
+            if (fs.existsSync(commentPath)) {
+              body = fs.readFileSync(commentPath, "utf8");
+            } else {
+              body =
+                "## \u{1F52C} Assist Proof Engine\n\n" +
+                "La verifica non ha prodotto un report " +
+                "(controlla i log del job per i dettagli).";
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find((c) => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # Ultimo step: fa fallire il job se il verdetto della verifica
+      # era "fail" (comando terminato con exit code diverso da zero).
+      # Il commento sulla PR e' comunque gia' stato pubblicato dallo
+      # step precedente.
+      - name: Fallisci il job se la verifica ha esito negativo
+        if: steps.assist_verify.outcome == 'failure'
+        run: |
+          echo "assist verify ha rilevato un fallimento (status: fail)."
+          exit 1

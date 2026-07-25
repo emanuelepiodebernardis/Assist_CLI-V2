@@ -1,0 +1,30 @@
+model: claude-sonnet-4-6
+
+models:
+  fast: claude-haiku-4-5
+  strong: claude-sonnet-4-6
+
+verify:
+  mutation_threshold: 0.60
+  sandbox_timeout_seconds: 30
+  max_mutants: 40
+  generate_boundary_tests: true
+
+temperature: 0.2
+
+max_input_tokens: 4000
+
+output_mode: concise
+
+quality:
+  threshold: 0.85
+  max_self_corrections: 2
+  fail_on_low_quality: false
+
+verification:
+  check_syntax: true
+  check_placeholders: true
+  check_coherence: true
+
+logging:
+  level: INFO
