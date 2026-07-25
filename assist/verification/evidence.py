@@ -79,6 +79,8 @@ class EvidenceBundle(BaseModel):
     baseline_tests: TestRunEvidence | None = None
     boundary_tests: TestRunEvidence | None = None
     boundary_tests_source: str = ""
+    property_tests: TestRunEvidence | None = None
+    property_tests_source: str = ""
     mutation: MutationReport | None = None
     dependencies: list[str] = Field(default_factory=list)
     discovered_tests_path: str = ""

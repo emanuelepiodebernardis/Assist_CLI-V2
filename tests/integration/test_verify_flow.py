@@ -247,3 +247,66 @@ def test_flaky_boundary_tests_are_quarantined(tmp_path):
     )
     # il verdetto non e' fail a causa dei test instabili
     assert result.verdict.status != "fail"
+
+
+PROPERTY_RESPONSE = """```python
+from hypothesis import given, strategies as st
+from clamping import clamp
+
+
+@given(
+    st.integers(),
+    st.integers(min_value=-100, max_value=0),
+    st.integers(min_value=1, max_value=100),
+)
+def test_clamp_within_bounds(v, lo, hi):
+    assert lo <= clamp(v, lo, hi) <= hi
+```"""
+
+CLAMP_BUGGY = """def clamp(v, lo, hi):
+    if v < lo:
+        return lo
+    return v
+"""
+
+CLAMP_TESTS = """from clamping import clamp
+
+
+def test_below():
+    assert clamp(-5, 0, 10) == 0
+
+
+def test_inside():
+    assert clamp(5, 0, 10) == 5
+"""
+
+
+def test_property_evidence_catches_bug_missed_by_unit_tests(tmp_path):
+    """La terza evidenza (Hypothesis): i test puntuali passano ma la
+    proprieta' lo <= clamp(...) <= hi viene falsificata -> FAIL."""
+    (tmp_path / "clamping.py").write_text(CLAMP_BUGGY, encoding="utf-8")
+    (tmp_path / "test_clamping.py").write_text(
+        CLAMP_TESTS, encoding="utf-8"
+    )
+
+    pipeline = VerificationPipeline(
+        fast_llm=_ScriptedLLM(
+            responses=["niente codice", PROPERTY_RESPONSE]
+        ),
+        strong_llm=_ScriptedLLM(
+            responses=["Spiegazione.", "no fix", "no fix", "no fix"]
+        ),
+        max_mutants=10,
+        max_fix_iterations=1,
+    )
+
+    result = pipeline.run(file_path=str(tmp_path / "clamping.py"))
+
+    evidence = result.evidence
+
+    assert evidence.baseline_tests is not None
+    assert evidence.baseline_tests.passed  # i test puntuali mentono
+    assert evidence.property_tests is not None
+    assert not evidence.property_tests.passed
+    assert result.verdict.status == "fail"
+    assert any("proprieta'" in r for r in result.verdict.reasons)

@@ -18,6 +18,7 @@ from assist.core.semantic_analyzer import SemanticAnalyzer
 from assist.llm.base import LLMClient
 from assist.schemas.models import SemanticAnalysis
 from assist.verification.boundary_agent import BoundaryTestAgent
+from assist.verification.coverage_map import build_coverage_map
 from assist.verification.dependency_collector import DependencyCollector
 from assist.verification.docker_sandbox import make_sandbox
 from assist.verification.evidence import (
@@ -29,6 +30,7 @@ from assist.verification.evidence import (
 from assist.verification.fix_loop import ValidatedFixLoop
 from assist.verification.judge import EvidenceJudge
 from assist.verification.mutation import MutationEngine
+from assist.verification.property_agent import PropertyTestAgent
 from assist.verification.pytest_report import parse_junit_xml
 from assist.verification.test_discovery import TestDiscovery
 
@@ -54,6 +56,7 @@ class VerificationPipeline:
             prefer_docker=use_docker,
         )
         self.boundary_agent = BoundaryTestAgent(llm=fast_llm)
+        self.property_agent = PropertyTestAgent(llm=fast_llm)
         self.mutation_engine = MutationEngine(
             sandbox=self.sandbox,
             max_mutants=max_mutants,
@@ -184,18 +187,70 @@ class VerificationPipeline:
                     "(output del modello non valido)."
                 )
 
+        # 5b. Property-based testing (terza evidenza, Hypothesis)
+        property_source = ""
+        if self.generate_boundary_tests:
+            raw_props = self.property_agent.generate(
+                source=source,
+                module_name=module_name,
+                semantic=semantic,
+            )
+
+            if raw_props:
+                property_source = PropertyTestAgent.harden(
+                    raw_props, self.property_agent.max_examples
+                )
+                evidence.property_tests_source = property_source
+                evidence.property_tests = self._run_tests(
+                    source, module_name, property_source,
+                    "property", deps,
+                )
+
+                # Quarantena flaky come per i boundary
+                if not evidence.property_tests.passed:
+                    rerun = self._run_tests(
+                        source, module_name, property_source,
+                        "property", deps,
+                    )
+
+                    if rerun.passed:
+                        evidence.notes.append(
+                            "Property test instabili (flaky): esclusi "
+                            "dal verdetto."
+                        )
+                        evidence.property_tests = None
+                        property_source = ""
+
         # 6. Mutation testing (usa il test set piu' completo disponibile)
         mutation_test_source = "\n\n".join(
-            src for src in (existing_test_source, boundary_source) if src
+            src
+            for src in (
+                existing_test_source,
+                boundary_source,
+                property_source,
+            )
+            if src
         )
 
         if mutation_test_source:
+            # Per-test coverage: contro ogni mutante solo i test che
+            # coprono la riga mutata (riduzione 50-80% del tempo).
+            cov_map = build_coverage_map(
+                source=source,
+                module_name=module_name,
+                test_source=mutation_test_source,
+                test_file_name="test_target.py",
+                sandbox=self.sandbox,
+                extra_files=deps,
+            )
+
             evidence.mutation = self.mutation_engine.run(
                 source=source,
                 module_name=module_name,
                 test_source=mutation_test_source,
                 target_lines=target_lines,
                 extra_files=deps,
+                coverage_map=cov_map if cov_map.available else None,
             )
         else:
             evidence.mutation = MutationReport(

@@ -132,6 +132,15 @@ class EvidenceJudge:
             )
             return "fail", reasons
 
+        if evidence.property_tests and not evidence.property_tests.passed:
+            reasons.append(
+                "Le proprieta' del codice sono violate: Hypothesis ha "
+                "trovato controesempi concreti "
+                f"({evidence.property_tests.tests_failed} proprieta' "
+                "falsificate)."
+            )
+            return "fail", reasons
+
         mutation = evidence.mutation
 
         if mutation and not mutation.skipped_reason:
@@ -149,7 +158,13 @@ class EvidenceJudge:
                 f"({mutation.killed}/{mutation.total_mutants} mutanti uccisi)."
             )
 
-        if evidence.baseline_tests is None and evidence.boundary_tests is None:
+        no_tests = (
+            evidence.baseline_tests is None
+            and evidence.boundary_tests is None
+            and evidence.property_tests is None
+        )
+
+        if no_tests:
             reasons.append(
                 "Nessun test eseguito: verifica limitata alla sintassi."
             )
@@ -223,6 +238,7 @@ class EvidenceJudge:
         for label, run in (
             ("Test esistenti", evidence.baseline_tests),
             ("Test boundary generati", evidence.boundary_tests),
+            ("Proprieta' (Hypothesis)", evidence.property_tests),
         ):
             if run is None:
                 continue

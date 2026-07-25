@@ -69,3 +69,51 @@ evidenze (sandbox, test, mutanti); l'LLM spiega e corregge, non giudica.*
 2. % bug reali trovati che i reviewer LLM-only non trovano
 3. % fix proposti accettati senza modifiche
 4. Costo per verifica (target: < $0.05 con split fast/strong)
+
+
+---
+
+## Roadmap v2 (aggiornamento competitivo, luglio 2026)
+
+Contesto: la sandbox execution si e' commoditizzata (Greptile TREX,
+CodeRabbit fix-ci, Cursor pre-push, Copilot agentic). NESSUN player fa
+mutation testing: la validazione dei test resta categoria vuota
+(praticata solo internamente da Meta ACH e Google). Posizionamento:
+"loro eseguono i test generati dall'AI; noi dimostriamo se quei test
+valgono qualcosa". Vantaggio di costo strutturale: mutazione CPU-only
+vs $2/run di TREX.
+
+### Fase A — Velocita' e profondita' delle evidenze (COMPLETATA, v4.7)
+
+- [x] Per-test coverage nel mutation engine (`coverage_map.py`:
+  contexts per-test via pytest-cov, run mirati sui soli test che
+  coprono la riga mutata; fallback trasparente)
+- [x] Selezione euristica dei mutanti budget-aware:
+  righe diff > confronti/negazioni > boolean > costanti > resto
+- [x] Terza evidenza: property-based testing Hypothesis
+  (`property_agent.py`, derandomize per determinismo, quarantena
+  flaky, contribuisce anche al mutation testing)
+- [x] Evidence artifacts nel commento PR: log sandbox e tabella
+  completa dei mutanti in sezioni collassabili, colonna Fix
+
+### Fase B — Espansione mercato (6-10 settimane)
+
+- [ ] TypeScript via wrapper StrykerJS (parser del report JSON),
+  NON mutatore proprio: settimane invece di mesi
+- [ ] Certificato in formato in-toto/SLSA statement
+  (predicate `assist.dev/verification/v1`)
+- [ ] Benchmark pubblico esteso (20+ casi, anche TS): il mutation
+  score 44% dei test-AI e' il nostro asset di marketing riproducibile
+
+### Fase C — Prodotto
+
+- [ ] GitHub App SaaS (design: docs/saas-architecture.md) con pricing
+  aggressivo contro il $2/run di TREX (target < $0.05/verifica)
+- [ ] Dashboard mutation score nel tempo (metrica che nessun
+  competitor puo' mostrare)
+
+### Non inseguire
+
+Sandbox "stack-aware" con servizi reali (scala di TREX), browser/E2E
+agentic testing (altro mercato), verifica formale completa (CrossHair
+eventualmente come evidenza opzionale futura).

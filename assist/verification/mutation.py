@@ -13,6 +13,7 @@ import ast
 import copy
 import hashlib
 
+from assist.verification.coverage_map import CoverageMap
 from assist.verification.evidence import (
     Mutant,
     MutantResult,
@@ -100,7 +101,6 @@ class _SiteCollector(ast.NodeVisitor):
                     f"operatore booleano {_sym(node.op)} -> {_sym_name(new_op)}",
                 )
             )
-        self.generic_visit(node)
 
     def visit_If(self, node: ast.If) -> None:
         self.generic_visit(node)
@@ -252,12 +252,17 @@ def _mutant_cache_key(
     mutated_source: str,
     test_source: str,
     extra_files: dict[str, str] | None,
+    node_ids: tuple[str, ...] | None = None,
 ) -> str:
     """Calcola la chiave di cache per la coppia (mutante, test).
 
     La chiave include anche gli `extra_files`, cosi' una cache
     condivisa tra run diversi non confonde esiti calcolati con
-    dipendenze diverse.
+    dipendenze diverse. Include anche `node_ids` (i test selezionati
+    via `CoverageMap`, se presenti): un mutante ucciso eseguendo solo
+    un sottoinsieme di test non e' lo stesso esito di un mutante
+    ucciso dall'intera suite, quindi le due chiavi devono differire
+    (altrimenti si rischiano hit di cache sbagliati).
     """
 
     payload = (
@@ -266,8 +271,40 @@ def _mutant_cache_key(
         + test_source
         + "\0"
         + str(sorted((extra_files or {}).items()))
+        + "\0"
+        + str(node_ids or ())
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _site_priority(
+    lineno: int,
+    description: str,
+    target_lines: set[int] | None,
+) -> tuple[int, int]:
+    """Priorita' euristica di un sito mutabile (piu' basso = prima).
+
+    Ordine: righe del diff, poi confronti/condizioni/boolean (dove
+    vivono i bug di boundary), poi costanti (off-by-one), poi il
+    resto. Ispirato alla ricerca su predictive mutant selection:
+    a parita' di budget, prima i mutanti con piu' probabilita' di
+    rivelare test deboli.
+    """
+
+    on_target = 0 if (target_lines and lineno in target_lines) else 1
+
+    if "confronto" in description or "negazione" in description:
+        category = 0
+    elif "booleano" in description:
+        category = 1
+    elif "costante" in description:
+        category = 2
+    elif "aritmetico" in description:
+        category = 3
+    else:  # slice, chiamate, return anticipato
+        category = 4
+
+    return (on_target, category)
 
 
 class MutationEngine:
@@ -307,7 +344,16 @@ class MutationEngine:
         source_lines = source.splitlines()
         mutants: list[tuple[Mutant, str]] = []
 
-        for index, (lineno, description) in enumerate(collector.sites):
+        # Selezione euristica: ordina i siti per priorita' (righe
+        # target, poi categorie ad alto segnale) prima del budget.
+        ordered_sites = sorted(
+            enumerate(collector.sites),
+            key=lambda item: _site_priority(
+                item[1][0], item[1][1], target_lines
+            ),
+        )
+
+        for index, (lineno, description) in ordered_sites:
             if len(mutants) >= self.max_mutants:
                 break
 
@@ -353,15 +399,28 @@ class MutationEngine:
         test_file_name: str = "test_target.py",
         target_lines: set[int] | None = None,
         extra_files: dict[str, str] | None = None,
+        coverage_map: CoverageMap | None = None,
     ) -> MutationReport:
         """Esegue mutation testing: per ogni mutante, i test devono fallire.
 
         `target_lines`, se fornito, limita la mutazione alle sole righe
         indicate (mutazione guidata dal diff).
 
+        `coverage_map`, se fornito e `available`, abilita il PER-TEST
+        COVERAGE (Fase A della roadmap): per ogni mutante si eseguono
+        solo i test che coprono `mutant.lineno` (via `CoverageMap`,
+        costruita a monte con `build_coverage_map`) invece dell'intera
+        suite, riducendo drasticamente il tempo del run. Se nessun
+        test copre la riga mutata, il mutante e' banalmente
+        "sopravvissuto" (nessun test puo' rilevarlo) e non si esegue
+        alcun test in sandbox. Se `coverage_map` e' `None` o non
+        `available`, il comportamento resta identico a prima: si
+        esegue sempre l'intera suite per ogni mutante (retrocompatibile).
+
         Ogni esito (ucciso/sopravvissuto) e' memorizzato in `self.cache`
-        sotto una chiave derivata da sorgente mutato, test ed
-        extra_files: se lo stesso mutante e' gia' in cache, la sandbox
+        sotto una chiave derivata da sorgente mutato, test, extra_files
+        e i node_ids dei test selezionati via `coverage_map` (se
+        presenti): se lo stesso mutante e' gia' in cache, la sandbox
         non viene rieseguita e l'esito viene riletto direttamente
         (contato in `self.cache_hits`).
         """
@@ -375,23 +434,56 @@ class MutationEngine:
                 skipped_reason="Nessun sito mutabile trovato nel sorgente."
             )
 
+        use_coverage = coverage_map is not None and coverage_map.available
+
         killed = 0
         surviving: list[MutantResult] = []
 
         for mutant, mutated_source in mutants:
-            cache_key = _mutant_cache_key(mutated_source, test_source, extra_files)
+            node_ids: tuple[str, ...] | None = None
+
+            if use_coverage:
+                assert coverage_map is not None
+                covering_tests = coverage_map.tests_for_line(mutant.lineno)
+
+                if not covering_tests:
+                    surviving.append(
+                        MutantResult(
+                            mutant=mutant,
+                            killed=False,
+                            detail="nessun test copre la riga",
+                        )
+                    )
+                    continue
+
+                node_ids = tuple(sorted(covering_tests))
+
+            cache_key = _mutant_cache_key(
+                mutated_source, test_source, extra_files, node_ids=node_ids
+            )
 
             if cache_key in self.cache:
                 self.cache_hits += 1
                 mutant_killed = self.cache[cache_key]
             else:
-                result = self.sandbox.run_pytest(
-                    files={
+                run_kwargs: dict[str, object] = {
+                    "files": {
                         f"{module_name}.py": mutated_source,
                         test_file_name: test_source,
                         **(extra_files or {}),
                     },
-                )
+                }
+
+                if node_ids is not None:
+                    run_kwargs["extra_args"] = [
+                        "-q",
+                        "--no-header",
+                        "-p",
+                        "no:cacheprovider",
+                        *node_ids,
+                    ]
+
+                result = self.sandbox.run_pytest(**run_kwargs)
 
                 # Test falliti (exit != 0) o timeout = mutante rilevato.
                 mutant_killed = not result.ok

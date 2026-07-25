@@ -146,3 +146,22 @@ def test_descriptions_match_actual_mutation_on_nested_source():
             assert "b - 1" in body
         elif "off-by-one" in mutant.description:
             assert "+ 2" in body
+
+
+def test_boolop_children_counted_once():
+    """Regressione: i figli di un BoolOp (Compare, Constant) devono
+    generare UN solo sito ciascuno — un doppio generic_visit nel
+    collector li duplicava disallineando collector e mutator."""
+    import ast
+
+    from assist.verification.mutation import _SiteCollector
+
+    source = "def f(t, flag):\n    if t > 100 and flag:\n        return 1\n    return 0\n"
+
+    collector = _SiteCollector()
+    collector.visit(ast.parse(source))
+
+    descriptions = [d for _, d in collector.sites]
+
+    assert descriptions.count("operatore di confronto > -> >=") == 1
+    assert descriptions.count("costante intera 100 -> 101 (off-by-one)") == 1
