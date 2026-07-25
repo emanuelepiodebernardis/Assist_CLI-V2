@@ -1,5 +1,24 @@
 model: claude-sonnet-4-6
 
+# Provider LLM (model-agnostic):
+#   anthropic -> API Anthropic (default)
+#   openai    -> qualunque endpoint OpenAI-compatible: OpenAI, Ollama,
+#                LM Studio, vLLM, Groq, Mistral, DeepSeek, OpenRouter...
+#   none      -> evidence-only: nessuna chiamata LLM, solo sandbox,
+#                mutation testing e coverage
+# Esempio Ollama locale:
+#   llm:
+#     provider: openai
+#     base_url: http://localhost:11434/v1
+#     api_key_env: OLLAMA_KEY   # ignorata se la env var non esiste
+#   models:
+#     fast: qwen2.5-coder:7b
+#     strong: qwen2.5-coder:32b
+llm:
+  provider: anthropic
+  base_url: https://api.openai.com/v1
+  api_key_env: OPENAI_API_KEY
+
 models:
   fast: claude-haiku-4-5
   strong: claude-sonnet-4-6

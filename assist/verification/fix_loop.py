@@ -106,6 +106,20 @@ class ValidatedFixLoop:
         for attempt_number in range(1, self.max_iterations + 1):
             code = self._extract_code(candidate_raw)
 
+            if not code.strip():
+                attempts.append(
+                    FixAttempt(
+                        attempt_number=attempt_number,
+                        fix_source="",
+                        tests_passed=False,
+                        detail=(
+                            "Nessun fix disponibile "
+                            "(risposta LLM vuota)."
+                        ),
+                    )
+                )
+                break
+
             syntax_error = self._check_syntax(code)
             if syntax_error:
                 attempts.append(

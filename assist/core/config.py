@@ -4,6 +4,24 @@ import yaml
 from pydantic import BaseModel, Field
 
 
+class LLMProviderConfig(BaseModel):
+    """Provider LLM (v5.0, model-agnostic).
+
+    - provider: anthropic | openai | mock | none
+      "openai" = qualunque endpoint OpenAI-compatible (OpenAI,
+      Ollama, LM Studio, vLLM, Groq, Mistral, DeepSeek, OpenRouter...)
+      "none" = modalita' evidence-only, nessuna chiamata LLM.
+    - base_url: endpoint per provider openai
+      (es. http://localhost:11434/v1 per Ollama).
+    - api_key_env: nome della env var con la chiave (vuota ok per
+      server locali).
+    """
+
+    provider: str = "anthropic"
+    base_url: str = "https://api.openai.com/v1"
+    api_key_env: str = "OPENAI_API_KEY"
+
+
 class ModelsConfig(BaseModel):
     """Tier di modelli (v4.0 Proof Engine).
 
@@ -47,6 +65,7 @@ class Settings(BaseModel):
     max_input_tokens: int = Field(default=4000, ge=1)
     output_mode: str = "concise"
 
+    llm: LLMProviderConfig = Field(default_factory=LLMProviderConfig)
     models: ModelsConfig = Field(default_factory=ModelsConfig)
     verify: VerifyConfig = Field(default_factory=VerifyConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)

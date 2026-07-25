@@ -458,7 +458,11 @@ def verify_command(
         str,
         typer.Option(
             "--provider",
-            help="Provider LLM: anthropic | mock",
+            help=(
+                "Provider LLM: anthropic | openai | mock | none "
+                "(openai = qualunque endpoint compatibile, es. "
+                "Ollama; none = solo evidenze deterministiche)"
+            ),
         ),
     ] = "anthropic",
     report_format: Annotated[

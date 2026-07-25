@@ -117,3 +117,15 @@ vs $2/run di TREX.
 Sandbox "stack-aware" con servizi reali (scala di TREX), browser/E2E
 agentic testing (altro mercato), verifica formale completa (CrossHair
 eventualmente come evidenza opzionale futura).
+
+
+## v4.9 — Model-agnostic (luglio 2026)
+
+- [x] Client OpenAI-compatible universale (`openai_compatible_client.py`,
+  solo stdlib): OpenAI, Ollama, LM Studio, vLLM, Groq, Mistral,
+  DeepSeek, OpenRouter e qualunque endpoint compatibile
+- [x] Modalita' evidence-only `--provider none`: verdetto completo
+  senza alcuna chiamata LLM (offline, zero costi) — possibile solo
+  perche' il verdetto e' deterministico per architettura
+- [x] Config `llm:` in settings.yaml (provider, base_url, api_key_env)
+  con esempio Ollama documentato

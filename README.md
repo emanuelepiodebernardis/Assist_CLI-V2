@@ -20,6 +20,24 @@ below.
 
 ---
 
+## Bring your own model (or none at all)
+
+The verdict engine is deterministic — the LLM never decides pass/fail.
+That means Proof Engine is **model-agnostic**:
+
+- `--provider anthropic` — Anthropic API (default)
+- `--provider openai` — any OpenAI-compatible endpoint: OpenAI, **Ollama**,
+  LM Studio, vLLM, Groq, Mistral, DeepSeek, OpenRouter... configure
+  `llm.base_url` in `config/settings.yaml` (e.g. `http://localhost:11434/v1`)
+- `--provider none` — **evidence-only mode**: no LLM calls at all. Sandbox
+  execution + mutation testing + coverage still produce a full verdict with
+  exit codes. No API key, no cost, works offline.
+- `--provider mock` — deterministic fixtures for development and CI of the
+  tool itself
+
+Model quality only affects the optional extras (generated boundary/property
+tests, explanations, proposed fixes) — never the verdict.
+
 ## Benchmark results
 
 Numbers from `benchmark/run_benchmark.py`, run against a corpus of 8

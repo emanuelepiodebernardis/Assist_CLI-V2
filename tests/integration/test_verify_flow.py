@@ -310,3 +310,33 @@ def test_property_evidence_catches_bug_missed_by_unit_tests(tmp_path):
     assert not evidence.property_tests.passed
     assert result.verdict.status == "fail"
     assert any("proprieta'" in r for r in result.verdict.reasons)
+
+
+def test_evidence_only_mode_no_llm(tmp_path):
+    """Modalita' evidence-only (--provider none): verdetto pieno
+    dalle sole evidenze deterministiche, zero dipendenza da LLM."""
+    from assist.llm.null_client import NullLLMClient
+
+    target = _setup_project(tmp_path)
+
+    pipeline = VerificationPipeline(
+        fast_llm=NullLLMClient(),
+        strong_llm=NullLLMClient(),
+        max_mutants=10,
+        max_fix_iterations=2,
+    )
+
+    result = pipeline.run(file_path=str(target))
+
+    evidence = result.evidence
+
+    # nessun test generato (LLM nullo), ma baseline + mutation attivi
+    assert evidence.boundary_tests is None
+    assert evidence.baseline_tests is not None
+    assert not evidence.baseline_tests.passed
+    assert result.verdict.status == "fail"
+
+    # niente spiegazione ne' fix, ma il verdetto e' completo
+    assert result.verdict.explanation == ""
+    assert result.verdict.proposed_fix == ""
+    assert result.verdict.fix_validated is False
