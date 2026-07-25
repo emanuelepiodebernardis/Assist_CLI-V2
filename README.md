@@ -375,3 +375,7 @@ MIT — see `LICENSE` for details.
 ## Author
 
 Emanuele Pio De Bernardis
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).

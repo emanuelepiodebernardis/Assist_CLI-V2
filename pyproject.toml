@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assist-cli"
-version = "0.1.0"
+version = "4.9.1"
 
 description = "Modular CLI coding assistant with skills, self-validation and verification layers"
 
@@ -12,10 +12,10 @@ readme = "README.md"
 
 requires-python = ">=3.10"
 
-license = "MIT"
+license = "Apache-2.0"
 
 authors = [
-    { name = "Emanuele Montenegro" }
+    { name = "Emanuele Pio De Bernardis" }
 ]
 
 dependencies = [

@@ -143,3 +143,23 @@ from assist.verification.ts_support import parse_stryker_report
 report_json = Path("reports/mutation/mutation.json").read_text()
 report = parse_stryker_report(report_json)
 ```
+
+
+## Aggiornamento v5.0 — verifica TS nativa
+
+`assist verify file.ts` ora funziona end-to-end senza progetto Stryker:
+
+1. auto-discovery dei test (`<nome>.test.ts` / `<nome>.spec.ts`)
+2. esecuzione vitest in sandbox Node isolata
+3. test boundary generati (modello fast)
+4. property-based testing con fast-check (numRuns via configureGlobal)
+5. verdetto evidence-based (stesso judge del flusso Python)
+
+Prerequisito: template Node con vitest+fast-check+typescript.
+Percorso: env `ASSIST_TS_TEMPLATE` (default `~/.assist/ts-template`).
+Setup: `mkdir -p ~/.assist/ts-template && cd ~/.assist/ts-template &&
+npm init -y && npm install vitest fast-check typescript`.
+
+Il mutation testing TS resta via progetto StrykerJS configurato
+(`ts_support.py`); il fix loop validato TS arriva in una release
+successiva.

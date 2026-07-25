@@ -129,3 +129,19 @@ eventualmente come evidenza opzionale futura).
   perche' il verdetto e' deterministico per architettura
 - [x] Config `llm:` in settings.yaml (provider, base_url, api_key_env)
   con esempio Ollama documentato
+
+
+## v5.0 — Multi-linguaggio: TypeScript nativo (luglio 2026)
+
+- [x] Dispatch per estensione nella pipeline (.ts/.tsx/.js/.mjs)
+- [x] `ts_runner.py`: vitest in sandbox Node (template node_modules
+  via symlink, report JSON, ~0.7s per run)
+- [x] `ts_test_agents.py`: boundary (vitest) e property (fast-check,
+  configureGlobal numRuns) generati dal modello fast
+- [x] Auto-discovery test TS (`.test.ts` / `.spec.ts`)
+- [x] Stesso judge, report, certificato e telemetria del flusso
+  Python: le evidenze sono language-agnostic per architettura
+- [ ] Fix loop validato TS; dipendenze multi-file TS; mutation TS
+  su file singolo (oggi via progetto StrykerJS)
+- [ ] Prossimi linguaggi via wrapper: Java/Kotlin (PIT),
+  C# (Stryker.NET), Rust (cargo-mutants), Go, PHP (Infection)

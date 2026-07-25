@@ -33,6 +33,15 @@ from assist.verification.mutation import MutationEngine
 from assist.verification.property_agent import PropertyTestAgent
 from assist.verification.pytest_report import parse_junit_xml
 from assist.verification.test_discovery import TestDiscovery
+from assist.verification.ts_runner import (
+    TsSandboxRunner,
+    ts_available,
+    vitest_report_to_evidence,
+)
+from assist.verification.ts_test_agents import (
+    TsBoundaryTestAgent,
+    TsPropertyTestAgent,
+)
 
 _PYTEST_SUMMARY = re.compile(r"(\d+) (?:failed|error)", re.IGNORECASE)
 _PYTEST_COLLECTED = re.compile(r"(\d+) (?:passed|failed|error)")
@@ -57,6 +66,8 @@ class VerificationPipeline:
         )
         self.boundary_agent = BoundaryTestAgent(llm=fast_llm)
         self.property_agent = PropertyTestAgent(llm=fast_llm)
+        self.ts_boundary_agent = TsBoundaryTestAgent(llm=fast_llm)
+        self.ts_property_agent = TsPropertyTestAgent(llm=fast_llm)
         self.mutation_engine = MutationEngine(
             sandbox=self.sandbox,
             max_mutants=max_mutants,
@@ -80,6 +91,10 @@ class VerificationPipeline:
         target_lines: set[int] | None = None,
     ) -> VerificationOutput:
         target = Path(file_path)
+
+        if target.suffix in (".ts", ".tsx", ".mts", ".js", ".mjs"):
+            return self._run_typescript(target, tests_path)
+
         source = target.read_text(encoding="utf-8")
         module_name = target.stem
 
@@ -271,6 +286,138 @@ class VerificationPipeline:
             boundary_source=boundary_source,
             deps=deps,
         )
+
+        return VerificationOutput(
+            verdict=verdict,
+            evidence=evidence,
+            report_markdown=self._render_report(evidence, verdict),
+        )
+
+    def _run_typescript(
+        self,
+        target: Path,
+        tests_path: str | None,
+    ) -> VerificationOutput:
+        """Flusso TypeScript/JavaScript: vitest + fast-check in
+        sandbox Node. Il judge e il report sono gli stessi del
+        flusso Python (le evidenze sono language-agnostic).
+
+        Non ancora coperti per TS: dipendenze locali multi-file,
+        mutation testing su file singolo (serve un progetto Stryker,
+        vedi docs/typescript.md) e fix loop validato.
+        """
+
+        source = target.read_text(encoding="utf-8")
+        module_name = target.stem
+
+        evidence = EvidenceBundle(
+            target_file=str(target),
+            module_name=module_name,
+        )
+
+        if not ts_available():
+            evidence.notes.append(
+                "Runtime TypeScript non disponibile (serve node e il "
+                "template vitest: vedi docs/typescript.md)."
+            )
+            verdict = self.judge.judge(evidence, source)
+            return VerificationOutput(
+                verdict=verdict,
+                evidence=evidence,
+                report_markdown=self._render_report(evidence, verdict),
+            )
+
+        runner = TsSandboxRunner(
+            timeout_seconds=self.sandbox.timeout_seconds
+        )
+
+        module_file = target.name
+
+        # Test esistenti: espliciti o auto-discovery TS
+        if tests_path is None:
+            for pattern in (
+                f"{module_name}.test{target.suffix}",
+                f"{module_name}.spec{target.suffix}",
+            ):
+                candidate = target.parent / pattern
+                if candidate.exists():
+                    tests_path = str(candidate)
+                    evidence.discovered_tests_path = tests_path
+                    evidence.notes.append(
+                        f"Test scoperti automaticamente: {tests_path}"
+                    )
+                    break
+
+        if tests_path and Path(tests_path).exists():
+            test_source = Path(tests_path).read_text(encoding="utf-8")
+
+            result, report = runner.run_vitest(
+                files={
+                    module_file: source,
+                    Path(tests_path).name: test_source,
+                },
+            )
+
+            evidence.baseline_tests = vitest_report_to_evidence(
+                report, result, "baseline"
+            )
+
+        # Boundary + property generati (modello fast)
+        if self.generate_boundary_tests:
+            boundary_source = self.ts_boundary_agent.generate(
+                source=source, module_name=module_name
+            )
+
+            if boundary_source:
+                evidence.boundary_tests_source = boundary_source
+
+                result, report = runner.run_vitest(
+                    files={
+                        module_file: source,
+                        f"{module_name}.boundary.test.ts": (
+                            boundary_source
+                        ),
+                    },
+                )
+
+                evidence.boundary_tests = vitest_report_to_evidence(
+                    report, result, "boundary"
+                )
+
+            raw_props = self.ts_property_agent.generate(
+                source=source, module_name=module_name
+            )
+
+            if raw_props:
+                props = TsPropertyTestAgent.harden(
+                    raw_props, self.ts_property_agent.num_runs
+                )
+                evidence.property_tests_source = props
+
+                result, report = runner.run_vitest(
+                    files={
+                        module_file: source,
+                        f"{module_name}.property.test.ts": props,
+                    },
+                )
+
+                evidence.property_tests = vitest_report_to_evidence(
+                    report, result, "property"
+                )
+
+        from assist.verification.evidence import MutationReport
+
+        evidence.mutation = MutationReport(
+            skipped_reason=(
+                "Mutation testing TS su file singolo non supportato: "
+                "usa un progetto con StrykerJS configurato "
+                "(docs/typescript.md)."
+            )
+        )
+
+        self.sandbox.runs += runner.runs  # telemetria unificata
+
+        verdict = self.judge.judge(evidence, source)
 
         return VerificationOutput(
             verdict=verdict,
