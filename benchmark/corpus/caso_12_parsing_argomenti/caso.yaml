@@ -1,0 +1,8 @@
+name: parsing_argomenti
+bug_description: >
+  Lo slice usa n - 1 come limite superiore invece di n, escludendo
+  sempre l'ultimo argomento richiesto. I test controllano solo che
+  il primo argomento sia presente e che il risultato sia una lista,
+  mai il conteggio esatto degli elementi restituiti.
+bug_line: 11
+categoria: slice

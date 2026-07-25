@@ -1,0 +1,9 @@
+name: retry_tentativi
+bug_description: >
+  La condizione usa <= invece di < per confrontare il tentativo
+  corrente col limite massimo: viene concesso un tentativo in piu'
+  rispetto alla policy configurata. I test verificano solo valori
+  lontani dal boundary (0 e 10 tentativi con limite 5), mai il
+  tentativo esattamente al limite.
+bug_line: 10
+categoria: boundary

@@ -96,14 +96,14 @@ vs $2/run di TREX.
 - [x] Evidence artifacts nel commento PR: log sandbox e tabella
   completa dei mutanti in sezioni collassabili, colonna Fix
 
-### Fase B — Espansione mercato (6-10 settimane)
+### Fase B — Espansione mercato (COMPLETATA, v4.8)
 
-- [ ] TypeScript via wrapper StrykerJS (parser del report JSON),
-  NON mutatore proprio: settimane invece di mesi
-- [ ] Certificato in formato in-toto/SLSA statement
-  (predicate `assist.dev/verification/v1`)
-- [ ] Benchmark pubblico esteso (20+ casi, anche TS): il mutation
-  score 44% dei test-AI e' il nostro asset di marketing riproducibile
+- [x] TypeScript via wrapper StrykerJS (`ts_support.py`: parser del
+  mutation-testing-report-schema, availability check, docs/typescript.md)
+- [x] Certificato come Statement in-toto v1 (`--intoto`, predicate
+  `https://assist-cli.dev/verification/v1`, roundtrip firmato verificato)
+- [x] Benchmark esteso a 20 casi, 8 categorie: detection rate 100%
+  (20/20), mutation score medio dei test-bugia 44%
 
 ### Fase C — Prodotto
 

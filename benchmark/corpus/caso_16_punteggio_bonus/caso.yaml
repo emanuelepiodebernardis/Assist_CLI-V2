@@ -1,0 +1,8 @@
+name: punteggio_bonus
+bug_description: >
+  Il calcolo sottrae il bonus velocita' invece di sommarlo (- invece
+  di +): il punteggio finale risulta piu' basso di quello base. I
+  test controllano solo che il risultato sia un intero non negativo,
+  mai il valore atteso (es. 60 per base 50 e bonus 10).
+bug_line: 11
+categoria: aritmetica

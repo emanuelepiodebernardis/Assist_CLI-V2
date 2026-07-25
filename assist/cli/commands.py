@@ -506,6 +506,16 @@ def verify_command(
             ),
         ),
     ] = None,
+    intoto: Annotated[
+        bool,
+        typer.Option(
+            "--intoto",
+            help=(
+                "Esporta il certificato come Statement in-toto v1 "
+                "(compatibile SLSA/cosign)"
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Verifica un file con evidenze deterministiche (Proof Engine).
 
@@ -677,6 +687,7 @@ def verify_command(
 
         from assist.verification.certificate import (
             build_certificate,
+            certificate_to_intoto_json,
             certificate_to_json,
             default_signing_key,
         )
@@ -692,7 +703,19 @@ def verify_command(
             for t_path, result in outputs
         ]
 
-        if len(certs) == 1:
+        if intoto:
+            from assist.verification.certificate import (
+                to_intoto_statement,
+            )
+
+            if len(certs) == 1:
+                cert_text = certificate_to_intoto_json(certs[0])
+            else:
+                cert_text = json.dumps(
+                    [to_intoto_statement(c) for c in certs],
+                    indent=2,
+                )
+        elif len(certs) == 1:
             cert_text = certificate_to_json(certs[0])
         else:
             cert_text = json.dumps(

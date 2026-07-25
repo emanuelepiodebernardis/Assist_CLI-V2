@@ -1,0 +1,8 @@
+name: gestione_stati_ordine
+bug_description: >
+  Il metodo spedisci() dovrebbe chiamare self.storico.append("spedito")
+  ma chiama invece self.storico.copy(), che non ha alcun effetto: la
+  registrazione dell'evento manca. I test verificano solo il cambio
+  di stato e l'assenza di eccezioni, mai il contenuto dello storico.
+bug_line: 19
+categoria: chiamata_mancante

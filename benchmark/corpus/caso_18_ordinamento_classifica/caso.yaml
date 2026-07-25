@@ -1,0 +1,8 @@
+name: ordinamento_classifica
+bug_description: >
+  Il confronto usa >= invece di >: i punteggi a pari merito vengono
+  trattati come se il primo argomento dovesse sempre precedere il
+  secondo. I test verificano solo punteggi chiaramente diversi (100
+  vs 50, 30 vs 80), mai il caso di parita'.
+bug_line: 12
+categoria: boundary

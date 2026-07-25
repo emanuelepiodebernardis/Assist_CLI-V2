@@ -1,0 +1,10 @@
+name: paginazione_indice
+bug_description: >
+  Il calcolo dell'indice iniziale di una pagina usa (pagina + 1)
+  invece di (pagina - 1) per convertire da 1-based a 0-based: ogni
+  pagina risulta spostata di due pagine intere in avanti. I test
+  verificano solo la distanza relativa tra pagine consecutive e la
+  divisibilita' per per_pagina, mai il valore assoluto (es. pagina 1
+  dovrebbe dare indice 0).
+bug_line: 11
+categoria: aritmetica

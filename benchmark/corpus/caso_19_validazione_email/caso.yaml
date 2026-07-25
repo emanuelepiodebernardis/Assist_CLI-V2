@@ -1,0 +1,9 @@
+name: validazione_email
+bug_description: >
+  Manca la normalizzazione dell'input: dovrebbe essere
+  indirizzo = indirizzo.strip() ma la riga chiama invece
+  indirizzo.upper() senza assegnare il risultato, quindi non ha
+  alcun effetto. I test non provano mai indirizzi con spazi
+  iniziali/finali, quindi non notano la normalizzazione mancante.
+bug_line: 14
+categoria: chiamata_mancante

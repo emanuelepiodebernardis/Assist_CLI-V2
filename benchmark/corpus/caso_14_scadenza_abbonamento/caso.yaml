@@ -1,0 +1,8 @@
+name: scadenza_abbonamento
+bug_description: >
+  La costante GIORNI_GRAZIA vale 2 invece di 3 (off-by-one): l'ultimo
+  giorno del periodo di grazia viene negato per errore. I test non
+  usano mai il valore esattamente al limite (3 giorni), quindi non
+  notano la soglia sbagliata.
+bug_line: 4
+categoria: off_by_one

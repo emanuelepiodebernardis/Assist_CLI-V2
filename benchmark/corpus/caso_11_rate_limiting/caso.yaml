@@ -1,0 +1,9 @@
+name: rate_limiting
+bug_description: >
+  La condizione finale usa 'or' invece di 'and': basta rispettare
+  uno solo dei due limiti (al minuto o all'ora) per consentire la
+  richiesta, invece di doverli rispettare entrambi. I test provano
+  solo le combinazioni "tutto sotto" e "tutto sopra", dove and/or si
+  comportano uguali, mai la combinazione mista.
+bug_line: 19
+categoria: logica_booleana

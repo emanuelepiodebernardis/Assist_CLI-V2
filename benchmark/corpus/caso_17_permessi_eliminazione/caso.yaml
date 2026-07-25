@@ -1,0 +1,9 @@
+name: permessi_eliminazione
+bug_description: >
+  La condizione usa 'and' invece di 'or': l'eliminazione dovrebbe
+  essere permessa se l'utente e' admin O proprietario, ma il codice
+  richiede erroneamente entrambe le condizioni. I test provano solo
+  le combinazioni "tutto vero" e "tutto falso", mai un admin non
+  proprietario (che rivelerebbe l'errore).
+bug_line: 12
+categoria: logica_booleana

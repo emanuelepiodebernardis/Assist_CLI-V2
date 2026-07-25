@@ -1,14 +1,20 @@
 """Test per il modulo del certificato di verifica."""
 
+import json
 from datetime import datetime
 
 import pytest
 
 from assist.verification.certificate import (
+    ASSIST_PREDICATE_TYPE,
+    INTOTO_STATEMENT_TYPE,
     build_certificate,
+    certificate_to_intoto_json,
     certificate_to_json,
     default_signing_key,
     load_certificate,
+    load_intoto_statement,
+    to_intoto_statement,
     verify_certificate,
 )
 from assist.verification.evidence import (
@@ -189,3 +195,116 @@ def test_default_signing_key_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("ASSIST_SIGNING_KEY", "chiave-env")
     assert default_signing_key() == "chiave-env"
+
+
+def test_to_intoto_statement_has_correct_shape() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+
+    statement = to_intoto_statement(cert)
+
+    assert statement["_type"] == INTOTO_STATEMENT_TYPE
+    assert statement["predicateType"] == ASSIST_PREDICATE_TYPE
+    assert statement["subject"] == [
+        {
+            "name": cert.payload.target_file,
+            "digest": {"sha256": cert.payload.source_sha256},
+        }
+    ]
+    predicate = statement["predicate"]
+    assert "target_file" not in predicate
+    assert "source_sha256" not in predicate
+    assert predicate["verdict_status"] == "warn"
+    assert predicate["signature"] == cert.signature
+    assert predicate["signature_algorithm"] == cert.signature_algorithm
+
+
+def test_to_intoto_statement_without_signature_omits_signature_keys() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE)
+
+    statement = to_intoto_statement(cert)
+
+    predicate = statement["predicate"]
+    assert "signature" not in predicate
+    assert "signature_algorithm" not in predicate
+
+
+def test_intoto_roundtrip_verifies_signature() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+
+    json_text = certificate_to_intoto_json(cert)
+    loaded = load_intoto_statement(json_text)
+
+    assert loaded.payload == cert.payload
+    assert loaded.signature == cert.signature
+    assert verify_certificate(loaded, "s3gr3t0") is True
+
+
+def test_intoto_roundtrip_without_signature_fails_verification() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE)
+
+    json_text = certificate_to_intoto_json(cert)
+    loaded = load_intoto_statement(json_text)
+
+    assert loaded.signature == ""
+    assert verify_certificate(loaded, "qualsiasi-chiave") is False
+
+
+def test_load_intoto_statement_detects_tampered_digest() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+
+    statement = to_intoto_statement(cert)
+    statement["subject"][0]["digest"]["sha256"] = "0" * 64
+
+    loaded = load_intoto_statement(json.dumps(statement))
+
+    assert verify_certificate(loaded, "s3gr3t0") is False
+
+
+def test_load_intoto_statement_raises_on_wrong_type() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+    statement = to_intoto_statement(cert)
+    statement["_type"] = "https://example.com/Statement/v0"
+
+    with pytest.raises(ValueError):
+        load_intoto_statement(json.dumps(statement))
+
+
+def test_load_intoto_statement_raises_on_wrong_predicate_type() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+    statement = to_intoto_statement(cert)
+    statement["predicateType"] = "https://example.com/other/v1"
+
+    with pytest.raises(ValueError):
+        load_intoto_statement(json.dumps(statement))
+
+
+def test_load_intoto_statement_raises_on_missing_subject() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+    statement = to_intoto_statement(cert)
+    statement["subject"] = []
+
+    with pytest.raises(ValueError):
+        load_intoto_statement(json.dumps(statement))
+
+
+def test_load_intoto_statement_raises_on_malformed_subject() -> None:
+    output = _make_output()
+    cert = build_certificate(output, SOURCE, signing_key="s3gr3t0")
+    statement = to_intoto_statement(cert)
+    statement["subject"] = [{"name": "src/target.py"}]
+
+    with pytest.raises(ValueError):
+        load_intoto_statement(json.dumps(statement))
+
+
+def test_load_intoto_statement_raises_on_invalid_json() -> None:
+    with pytest.raises(ValueError):
+        load_intoto_statement("{questo non e' json valido")

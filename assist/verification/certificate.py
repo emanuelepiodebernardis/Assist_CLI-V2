@@ -22,6 +22,8 @@ TOOL_NAME = "assist-cli"
 TOOL_VERSION = "4.5"
 SCHEMA_VERSION = "1.0"
 SIGNING_KEY_ENV_VAR = "ASSIST_SIGNING_KEY"
+INTOTO_STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
+ASSIST_PREDICATE_TYPE = "https://assist-cli.dev/verification/v1"
 
 
 class CertificatePayload(BaseModel):
@@ -171,3 +173,119 @@ def load_certificate(json_text: str) -> VerificationCertificate:
         raise ValueError(
             f"Schema del certificato non valido: {exc}"
         ) from exc
+
+
+def to_intoto_statement(cert: VerificationCertificate) -> dict:
+    """Converte il certificato in uno Statement in-toto v1.
+
+    Lo statement risultante e' conforme alla specifica in-toto v1 per
+    le attestazioni di supply-chain (usata ad esempio da SLSA), cosi'
+    da poter essere consumato da toolchain esistenti come cosign,
+    GitHub attestations o motori di policy, senza dipendere dal
+    formato nativo del certificato. Il ``subject`` riporta il file
+    verificato e il suo hash SHA-256; il ``predicate`` contiene il
+    resto del payload (piu' la firma, se presente).
+    """
+    payload_data = cert.payload.model_dump()
+    target_file = payload_data.pop("target_file")
+    source_sha256 = payload_data.pop("source_sha256")
+
+    predicate: dict = dict(payload_data)
+    if cert.signature:
+        predicate["signature"] = cert.signature
+        predicate["signature_algorithm"] = cert.signature_algorithm
+
+    return {
+        "_type": INTOTO_STATEMENT_TYPE,
+        "subject": [
+            {"name": target_file, "digest": {"sha256": source_sha256}}
+        ],
+        "predicateType": ASSIST_PREDICATE_TYPE,
+        "predicate": predicate,
+    }
+
+
+def certificate_to_intoto_json(cert: VerificationCertificate) -> str:
+    """Serializza il certificato come Statement in-toto v1 in JSON."""
+    statement = to_intoto_statement(cert)
+    return json.dumps(statement, indent=2, ensure_ascii=False)
+
+
+def load_intoto_statement(json_text: str) -> VerificationCertificate:
+    """Ricostruisce un certificato a partire da uno Statement in-toto v1.
+
+    Effettua il percorso inverso di :func:`to_intoto_statement`: valida
+    ``_type`` e ``predicateType`` e ricompone ``CertificatePayload`` e
+    ``VerificationCertificate`` da ``subject`` e ``predicate``. Solleva
+    ``ValueError`` con un messaggio chiaro se il testo non e' JSON
+    valido, se i tipi non corrispondono a quelli attesi, o se il
+    ``subject``/``predicate`` sono assenti o malformati.
+    """
+    try:
+        data = json.loads(json_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"JSON dello statement non valido: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError(
+            "Statement in-toto non valido: atteso un oggetto JSON"
+        )
+
+    statement_type = data.get("_type")
+    if statement_type != INTOTO_STATEMENT_TYPE:
+        raise ValueError(
+            "_type dello statement non valido: atteso "
+            f"'{INTOTO_STATEMENT_TYPE}', trovato '{statement_type}'"
+        )
+
+    predicate_type = data.get("predicateType")
+    if predicate_type != ASSIST_PREDICATE_TYPE:
+        raise ValueError(
+            "predicateType dello statement non valido: atteso "
+            f"'{ASSIST_PREDICATE_TYPE}', trovato '{predicate_type}'"
+        )
+
+    subject = data.get("subject")
+    if not isinstance(subject, list) or not subject:
+        raise ValueError(
+            "subject dello statement in-toto mancante o vuoto"
+        )
+
+    first_subject = subject[0]
+    if not isinstance(first_subject, dict) or "name" not in first_subject:
+        raise ValueError("subject dello statement malformato: manca 'name'")
+
+    digest = first_subject.get("digest")
+    if not isinstance(digest, dict) or "sha256" not in digest:
+        raise ValueError(
+            "subject dello statement malformato: manca 'digest.sha256'"
+        )
+
+    predicate = data.get("predicate")
+    if not isinstance(predicate, dict):
+        raise ValueError("predicate dello statement mancante o malformato")
+
+    predicate_data = dict(predicate)
+    signature = predicate_data.pop("signature", "")
+    signature_algorithm = predicate_data.pop(
+        "signature_algorithm", "HMAC-SHA256"
+    )
+
+    payload_data = {
+        **predicate_data,
+        "target_file": first_subject["name"],
+        "source_sha256": digest["sha256"],
+    }
+
+    try:
+        payload = CertificatePayload.model_validate(payload_data)
+    except ValidationError as exc:
+        raise ValueError(
+            f"Predicate dello statement non valido: {exc}"
+        ) from exc
+
+    return VerificationCertificate(
+        payload=payload,
+        signature=signature,
+        signature_algorithm=signature_algorithm,
+    )

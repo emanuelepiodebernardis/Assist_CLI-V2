@@ -1,0 +1,8 @@
+name: sconto_fedelta
+bug_description: >
+  Il valore di default di soglia_anni e' 3 invece di 5 (policy
+  commerciale aggiornata). I test chiamano sempre la funzione con
+  soglia_anni esplicito, quindi non esercitano mai il default
+  sbagliato.
+bug_line: 5
+categoria: default_sbagliato

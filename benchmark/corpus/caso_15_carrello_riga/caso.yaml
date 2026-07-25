@@ -1,0 +1,8 @@
+name: carrello_riga
+bug_description: >
+  Il guard clause per quantita' non positive non ritorna 0.0
+  (rimasto un no-op 'pass'): manca il return anticipato che dovrebbe
+  bloccare il calcolo. I test non passano mai una quantita' zero o
+  negativa.
+bug_line: 13
+categoria: early_return
