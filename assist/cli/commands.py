@@ -486,6 +486,16 @@ def verify_command(
             help="Salva il report markdown su file",
         ),
     ] = None,
+    certificate_path: Annotated[
+        str | None,
+        typer.Option(
+            "--certificate",
+            help=(
+                "Esporta il certificato di verifica JSON "
+                "(firmato se ASSIST_SIGNING_KEY e' impostata)"
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Verifica un file con evidenze deterministiche (Proof Engine).
 
@@ -650,6 +660,45 @@ def verify_command(
         console.print(full_report)
 
     typer.echo(stats.summary_line(), err=True)
+
+    if certificate_path:
+        import json
+
+        from assist.verification.certificate import (
+            build_certificate,
+            certificate_to_json,
+            default_signing_key,
+        )
+
+        key = default_signing_key()
+
+        certs = [
+            build_certificate(
+                result,
+                source=Path(t_path).read_text(encoding="utf-8"),
+                signing_key=key,
+            )
+            for t_path, result in outputs
+        ]
+
+        if len(certs) == 1:
+            cert_text = certificate_to_json(certs[0])
+        else:
+            cert_text = json.dumps(
+                [c.model_dump() for c in certs],
+                indent=2,
+            )
+
+        Path(certificate_path).write_text(
+            cert_text,
+            encoding="utf-8",
+        )
+
+        firmato = "firmato" if key else "NON firmato (ASSIST_SIGNING_KEY assente)"
+        typer.echo(
+            f"Certificato {firmato}: {certificate_path}",
+            err=True,
+        )
 
     if any_fail:
         raise typer.Exit(code=1)

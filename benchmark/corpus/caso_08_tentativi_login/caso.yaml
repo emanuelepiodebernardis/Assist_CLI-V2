@@ -1,0 +1,7 @@
+name: tentativi_login
+bug_description: >
+  Il default di `limite` e' 3 invece di 5 (policy di sicurezza). I
+  test chiamano sempre la funzione con `limite` esplicito, quindi
+  non esercitano mai il valore di default sbagliato.
+bug_line: 4
+categoria: default_sbagliato

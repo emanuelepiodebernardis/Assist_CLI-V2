@@ -1,0 +1,7 @@
+name: password_minima
+bug_description: >
+  La costante LUNGHEZZA_MINIMA vale 7 invece di 8 (off-by-one). I
+  test non usano password di lunghezza esattamente 7 o 8, quindi
+  non notano la soglia sbagliata.
+bug_line: 3
+categoria: off_by_one

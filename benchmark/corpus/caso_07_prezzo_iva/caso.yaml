@@ -1,0 +1,8 @@
+name: prezzo_iva
+bug_description: >
+  Il calcolo sottrae l'IVA invece di sommarla (- invece di +): il
+  prezzo lordo risulta piu' basso del netto. I test controllano solo
+  segno e tipo del risultato, mai il valore atteso (es. 122.0 per
+  100 euro netti).
+bug_line: 12
+categoria: aritmetica

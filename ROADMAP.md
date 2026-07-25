@@ -44,12 +44,17 @@ evidenze (sandbox, test, mutanti); l'LLM spiega e corregge, non giudica.*
 - [x] Hook post-sessione: `assist install-hooks` (pre-commit git universale + PostToolUse Claude Code, merge idempotente di .claude/settings.json)
 - [x] Report "non-developer": `--audience non-dev` (spiegazioni senza gergo, rischi in linguaggio quotidiano)
 
-## Fase 3 — Prodotto (3-6 mesi)
+## Fase 3 — Prodotto (in corso, v4.5)
 
+- [x] "Certificato di verifica" esportabile: `--certificate out.json`,
+  payload con hash sorgente + evidenze, firma HMAC-SHA256
+  (`ASSIST_SIGNING_KEY`), verifica anti-manomissione
+- [x] Benchmark harness: corpus di 8 bug realistici con test-bugia,
+  detection rate 100% (mutante sopravvissuto sulla riga del bug),
+  mutation score medio dei test-bugia 44% (`benchmark/run_benchmark.py`)
 - [ ] GitHub App SaaS (webhook PR, coda di verifica, dashboard)
 - [ ] Sandbox containerizzata (Docker/gVisor) per codice non fidato
 - [ ] Secondo linguaggio (TypeScript: mutazione via AST ts-morph, runner vitest/jest)
-- [ ] "Certificato di verifica" esportabile (audit trail per compliance)
 - [ ] Pricing: free per open source, per-seat + usage per team
 
 ## Metriche di successo

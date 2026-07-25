@@ -1,0 +1,8 @@
+name: prime_parole
+bug_description: >
+  Lo slice usa n - 1 come limite superiore invece di n, escludendo
+  sempre l'ultima parola richiesta. I test controllano solo
+  l'appartenenza della prima parola e che il risultato non sia
+  vuoto, mai il conteggio esatto.
+bug_line: 11
+categoria: slice

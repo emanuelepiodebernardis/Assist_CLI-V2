@@ -1,0 +1,7 @@
+name: eta_maggiorenne
+bug_description: >
+  La soglia di accesso usa l'operatore > invece di >=: chi ha
+  esattamente l'eta' minima viene escluso per errore. I test
+  verificano solo casi lontani dal boundary (25 e 10 anni).
+bug_line: 11
+categoria: boundary

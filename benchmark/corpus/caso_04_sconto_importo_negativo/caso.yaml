@@ -1,0 +1,7 @@
+name: sconto_importo_negativo
+bug_description: >
+  Il guard clause per importi negativi non ritorna 0.0 (rimasto un
+  no-op 'pass'): manca il return anticipato che dovrebbe bloccare il
+  calcolo. I test non passano mai un importo negativo.
+bug_line: 14
+categoria: early_return

@@ -1,0 +1,7 @@
+name: checkout_carrello
+bug_description: >
+  La condizione di checkout usa 'or' invece di 'and': basta un solo
+  requisito soddisfatto per procedere. I test coprono solo i casi
+  "tutto vero" e "tutto falso", dove 'and'/'or' si comportano uguali.
+bug_line: 11
+categoria: logica_booleana

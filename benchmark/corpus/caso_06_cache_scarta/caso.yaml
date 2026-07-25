@@ -1,0 +1,9 @@
+name: cache_scarta
+bug_description: >
+  Il metodo scarta() dovrebbe chiamare self.dati.pop(chiave, None)
+  ma chiama invece self.dati.keys(), che non ha alcun effetto: la
+  chiamata di rimozione vera e propria manca. I test verificano solo
+  l'assenza di eccezioni, mai il contenuto della cache dopo la
+  chiamata.
+bug_line: 17
+categoria: chiamata_mancante
