@@ -12,17 +12,29 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Installa dipendenze
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Installa dipendenze Python
         run: |
           pip install -e .
           pip install pytest pytest-cov coverage hypothesis \
             anthropic python-dotenv pyyaml ruff
+
+      - name: Prepara template TypeScript (vitest + fast-check)
+        run: |
+          mkdir -p /tmp/ts_template
+          cd /tmp/ts_template
+          npm init -y > /dev/null
+          npm install vitest fast-check typescript \
+            --no-audit --no-fund
 
       - name: Lint (moduli di produzione)
         run: |
@@ -31,6 +43,8 @@ jobs:
 
       - name: Test
         run: python -m pytest tests/ -q
+        env:
+          ASSIST_TS_TEMPLATE: /tmp/ts_template
 
       - name: Benchmark (solo validazione strutturale)
         run: python -m pytest tests/unit/verification/test_benchmark.py -q
