@@ -1,5 +1,7 @@
 # Assist CLI — Proof Engine
 
+[![tests](https://github.com/emanuelepiodebernardis/Assist_CLI-V2/actions/workflows/tests.yml/badge.svg)](https://github.com/emanuelepiodebernardis/Assist_CLI-V2/actions/workflows/tests.yml)
+
 AI code is 99% right. The 1% ships to production.
 
 Proof Engine is the verification layer for AI-generated code: deterministic

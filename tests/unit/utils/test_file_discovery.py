@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from assist.utils.file_discovery import discover_files
 

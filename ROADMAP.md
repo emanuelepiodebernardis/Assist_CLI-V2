@@ -145,3 +145,18 @@ eventualmente come evidenza opzionale futura).
   su file singolo (oggi via progetto StrykerJS)
 - [ ] Prossimi linguaggi via wrapper: Java/Kotlin (PIT),
   C# (Stryker.NET), Rust (cargo-mutants), Go, PHP (Infection)
+
+
+## v5.0.1 — Hardening (luglio 2026)
+
+- [x] Lettura robusta agli encoding (`safe_text.py`): UTF-8, BOM
+  UTF-8/16/32, Windows-1252, errore chiaro sui binari — mai piu'
+  crash su un file "strano" (FileReader, pipeline Python e TS)
+- [x] Output sicuro su pipe Windows: stream riconfigurati con
+  errors="replace", il report non crasha mai su cp1252
+- [x] SkillResolver con fallback alla root del package: tutti i
+  comandi funzionano da qualunque directory
+- [x] CI pubblica: workflow `tests.yml` (pytest + ruff) con badge
+  nel README
+- [x] SECURITY.md: modello di isolamento documentato per sandbox
+  processo / Docker / TypeScript, e cosa vede l'LLM

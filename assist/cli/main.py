@@ -1,6 +1,27 @@
+import sys
+
 import typer
 
-from assist.cli.commands import (
+
+def _make_streams_safe() -> None:
+    """Su Windows l'output pipato usa cp1252: i caratteri Unicode
+    dei report (frecce, emoji del commento PR) farebbero crashare
+    la Console. Riconfiguriamo gli stream per sostituire i
+    caratteri non codificabili invece di sollevare eccezioni."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
+_make_streams_safe()
+
+from assist.cli.commands import (  # noqa: E402
     diff_command,
     explain_command,
     generate_command,

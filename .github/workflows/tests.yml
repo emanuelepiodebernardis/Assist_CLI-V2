@@ -1,0 +1,36 @@
+# CI: esegue l'intera suite pytest a ogni push e PR.
+# Il badge nel README punta a questo workflow.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installa dipendenze
+        run: |
+          pip install -e .
+          pip install pytest pytest-cov coverage hypothesis \
+            anthropic python-dotenv pyyaml ruff
+
+      - name: Lint (moduli di produzione)
+        run: |
+          python -m ruff check assist/verification assist/cli \
+            assist/llm assist/utils assist/schemas
+
+      - name: Test
+        run: python -m pytest tests/ -q
+
+      - name: Benchmark (solo validazione strutturale)
+        run: python -m pytest tests/unit/verification/test_benchmark.py -q

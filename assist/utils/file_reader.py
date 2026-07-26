@@ -1,7 +1,11 @@
 from pathlib import Path
 
+from assist.utils.safe_text import safe_read_text
+
 
 class FileReader:
+    """Lettura file robusta agli encoding (UTF-8, BOM, cp1252)."""
+
     @staticmethod
     def read(
         file_path: str,
@@ -18,6 +22,4 @@ class FileReader:
                 f"Not a file: {file_path}"
             )
 
-        return path.read_text(
-            encoding="utf-8"
-        )
+        return safe_read_text(path)

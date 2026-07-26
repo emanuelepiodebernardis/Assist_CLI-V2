@@ -173,12 +173,29 @@ def _parse_v3_fields(
     return parsed
 
 
+_DEFAULT_SKILLS_PATH = "assist/skills"
+
+
 class SkillResolver:
     def __init__(
         self,
-        skills_path: str = "assist/skills",
+        skills_path: str = _DEFAULT_SKILLS_PATH,
     ) -> None:
-        self.skills_path = Path(skills_path)
+        path = Path(skills_path)
+
+        # Fallback alla root del package: il CLI deve funzionare
+        # da qualunque directory, non solo dalla root del repo.
+        if (
+            skills_path == _DEFAULT_SKILLS_PATH
+            and not path.exists()
+        ):
+            package_root = Path(__file__).resolve().parents[2]
+            candidate = package_root / _DEFAULT_SKILLS_PATH
+
+            if candidate.exists():
+                path = candidate
+
+        self.skills_path = path
 
     def load(
         self,

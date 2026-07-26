@@ -17,6 +17,7 @@ from pathlib import Path
 from assist.core.semantic_analyzer import SemanticAnalyzer
 from assist.llm.base import LLMClient
 from assist.schemas.models import SemanticAnalysis
+from assist.utils.safe_text import safe_read_text
 from assist.verification.boundary_agent import BoundaryTestAgent
 from assist.verification.coverage_map import build_coverage_map
 from assist.verification.dependency_collector import DependencyCollector
@@ -95,7 +96,7 @@ class VerificationPipeline:
         if target.suffix in (".ts", ".tsx", ".mts", ".js", ".mjs"):
             return self._run_typescript(target, tests_path)
 
-        source = target.read_text(encoding="utf-8")
+        source = safe_read_text(target)
         module_name = target.stem
 
         evidence = EvidenceBundle(
@@ -153,7 +154,7 @@ class VerificationPipeline:
         if tests_path:
             test_file = Path(tests_path)
             if test_file.exists():
-                existing_test_source = test_file.read_text(encoding="utf-8")
+                existing_test_source = safe_read_text(test_file)
                 evidence.baseline_tests = self._run_tests(
                     source, module_name, existing_test_source,
                     "baseline", deps,
@@ -307,7 +308,7 @@ class VerificationPipeline:
         vedi docs/typescript.md) e fix loop validato.
         """
 
-        source = target.read_text(encoding="utf-8")
+        source = safe_read_text(target)
         module_name = target.stem
 
         evidence = EvidenceBundle(
@@ -349,7 +350,7 @@ class VerificationPipeline:
                     break
 
         if tests_path and Path(tests_path).exists():
-            test_source = Path(tests_path).read_text(encoding="utf-8")
+            test_source = safe_read_text(Path(tests_path))
 
             result, report = runner.run_vitest(
                 files={

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assist-cli"
-version = "4.9.1"
+version = "5.0.1"
 
 description = "Modular CLI coding assistant with skills, self-validation and verification layers"
 
