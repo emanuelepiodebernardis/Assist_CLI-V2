@@ -596,6 +596,7 @@ def verify_command(
         max_fix_iterations=merged["max_fix_iterations"],
         audience=audience,
         use_docker=docker or settings.verify.use_docker,
+        max_input_chars=settings.max_input_tokens * 4,
     )
 
     targets: list[tuple[str, set[int] | None]] = []

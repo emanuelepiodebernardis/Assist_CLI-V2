@@ -34,6 +34,8 @@ from assist.verification.mutation import MutationEngine
 from assist.verification.property_agent import PropertyTestAgent
 from assist.verification.pytest_report import parse_junit_xml
 from assist.verification.test_discovery import TestDiscovery
+from assist.verification.ts_deps import TsDependencyCollector
+from assist.verification.ts_fix_loop import TsValidatedFixLoop
 from assist.verification.ts_runner import (
     TsSandboxRunner,
     ts_available,
@@ -60,6 +62,7 @@ class VerificationPipeline:
         max_fix_iterations: int = 3,
         audience: str = "dev",
         use_docker: bool = False,
+        max_input_chars: int = 24000,
     ) -> None:
         self.sandbox = make_sandbox(
             timeout_seconds=sandbox_timeout,
@@ -77,12 +80,15 @@ class VerificationPipeline:
             llm=strong_llm,
             mutation_threshold=mutation_threshold,
             audience=audience,
+            max_input_chars=max_input_chars,
         )
         self.fix_loop = ValidatedFixLoop(
             llm=strong_llm,
             sandbox=self.sandbox,
             max_iterations=max_fix_iterations,
         )
+        self._strong_llm = strong_llm
+        self.max_fix_iterations = max_fix_iterations
         self.generate_boundary_tests = generate_boundary_tests
 
     def run(
@@ -334,6 +340,22 @@ class VerificationPipeline:
 
         module_file = target.name
 
+        # Dipendenze locali (import relativi) nella sandbox
+        ts_deps: dict[str, str] = {}
+        try:
+            ts_deps = TsDependencyCollector().collect(target)
+        except Exception as exc:
+            evidence.notes.append(
+                f"Raccolta dipendenze TS saltata: {exc}"
+            )
+
+        if ts_deps:
+            evidence.dependencies = sorted(ts_deps)
+            evidence.notes.append(
+                f"Sandbox multi-file: incluse {len(ts_deps)} "
+                "dipendenze locali."
+            )
+
         # Test esistenti: espliciti o auto-discovery TS
         if tests_path is None:
             for pattern in (
@@ -356,6 +378,7 @@ class VerificationPipeline:
                 files={
                     module_file: source,
                     Path(tests_path).name: test_source,
+                    **ts_deps,
                 },
             )
 
@@ -378,6 +401,7 @@ class VerificationPipeline:
                         f"{module_name}.boundary.test.ts": (
                             boundary_source
                         ),
+                        **ts_deps,
                     },
                 )
 
@@ -399,6 +423,7 @@ class VerificationPipeline:
                     files={
                         module_file: source,
                         f"{module_name}.property.test.ts": props,
+                        **ts_deps,
                     },
                 )
 
@@ -416,9 +441,70 @@ class VerificationPipeline:
             )
         )
 
-        self.sandbox.runs += runner.runs  # telemetria unificata
-
         verdict = self.judge.judge(evidence, source)
+
+        # Fix loop validato TS: accettato solo se vitest passa.
+        if verdict.status == "fail":
+            failing_files: dict[str, str] = {}
+            failure_summary = ""
+
+            for run, name, src in (
+                (
+                    evidence.baseline_tests,
+                    Path(tests_path).name if tests_path else "",
+                    None,
+                ),
+                (
+                    evidence.boundary_tests,
+                    f"{module_name}.boundary.test.ts",
+                    evidence.boundary_tests_source,
+                ),
+                (
+                    evidence.property_tests,
+                    f"{module_name}.property.test.ts",
+                    evidence.property_tests_source,
+                ),
+            ):
+                if run is not None and not run.passed and name:
+                    content = (
+                        src
+                        if src
+                        else safe_read_text(Path(tests_path))
+                    )
+                    failing_files[name] = content
+                    failure_summary = run.failure_summary
+                    break
+
+            if failing_files:
+                loop = TsValidatedFixLoop(
+                    llm=self._strong_llm,
+                    runner=runner,
+                    max_iterations=self.max_fix_iterations,
+                )
+
+                result = loop.run(
+                    source=source,
+                    module_file=module_file,
+                    test_files=failing_files,
+                    failure_summary=failure_summary,
+                    extra_files=ts_deps,
+                    initial_fix=verdict.proposed_fix,
+                )
+
+                if result.success:
+                    verdict.proposed_fix = result.validated_fix
+                    verdict.fix_validated = True
+                    verdict.reasons.append(
+                        "Fix validato in sandbox (vitest) al "
+                        f"tentativo {result.iterations_used}."
+                    )
+                else:
+                    evidence.notes.append(
+                        "Nessun fix TS validato entro "
+                        f"{self.max_fix_iterations} tentativi."
+                    )
+
+        self.sandbox.runs += runner.runs  # telemetria unificata
 
         return VerificationOutput(
             verdict=verdict,

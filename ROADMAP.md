@@ -160,3 +160,12 @@ eventualmente come evidenza opzionale futura).
   nel README
 - [x] SECURITY.md: modello di isolamento documentato per sandbox
   processo / Docker / TypeScript, e cosa vede l'LLM
+
+
+## v5.1 — Fix round (luglio 2026)
+
+- [x] Fix loop validato TypeScript (`ts_fix_loop.py`)
+- [x] Dipendenze locali multi-file TS (`ts_deps.py`)
+- [x] Retry esponenziale nel client Anthropic (429/5xx/connessione)
+- [x] Dead-code detector senza falsi positivi su dunder/fixture/decoratori
+- [x] `max_input_tokens` collegato al judge (troncamento evidenze)

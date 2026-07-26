@@ -805,11 +805,22 @@ Stato degli item alla luce del lavoro v4.x-v5.0.1 (Proof Engine).
 
 ### Nuovi item (introdotti dal lavoro v4.x-v5.0)
 
-- **TS-1 (medium)**: fix loop validato non disponibile per TypeScript
-- **TS-2 (medium)**: dipendenze locali multi-file non raccolte nel flusso TS
+- **TS-1**: fix loop validato TS — **RESOLVED v5.1**
+  (`ts_fix_loop.py`: fix accettato solo dopo il pass di vitest)
+- **TS-2**: dipendenze locali multi-file TS — **RESOLVED v5.1**
+  (`ts_deps.py`: import relativi risolti ricorsivamente in sandbox)
 - **TS-3 (low)**: mutation testing TS su file singolo richiede progetto
-  StrykerJS configurato (`docs/typescript.md`)
+  StrykerJS configurato (`docs/typescript.md`) — open
 - **BM-1 (high, non-codice)**: benchmark su codebase terze reali assente —
-  i 20 casi del corpus sono sintetici, scritti dall'autore
-- **AN-1 (low)**: il client Anthropic non ha retry su 429/5xx (il client
-  OpenAI-compatible si)
+  i 20 casi del corpus sono sintetici, scritti dall'autore — open
+- **AN-1**: retry client Anthropic — **RESOLVED v5.1** (max 2 retry
+  esponenziali su 429/5xx/connessione, altri errori propagati subito)
+
+### Risolti in v5.1 (item legacy)
+
+- 5.x Falsi positivi dead-code detector — **RESOLVED v5.1**: esclusi
+  dunder, `test_*`, fixture pytest, `property`/`staticmethod`/
+  `classmethod`/`field_validator`/`abstractmethod`, `main`
+- `max_input_tokens` non usato — **RESOLVED v5.1**: collegato al judge
+  (`max_input_chars = max_input_tokens * 4`, troncamento evidenze con
+  nota esplicita)

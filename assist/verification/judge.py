@@ -69,7 +69,19 @@ class EvidenceJudge:
         llm: LLMClient,
         mutation_threshold: float = 0.60,
         audience: str = "dev",
+        max_input_chars: int = 24000,
     ) -> None:
+        """Inizializza il judge.
+
+        ``max_input_chars`` limita la dimensione totale (sorgente incluso)
+        del testo di evidenze inserito nel prompt inviato all'LLM forte.
+        Il default 24000 e' coerente con un budget di ~4 caratteri per
+        token (regola empirica per l'inglese/codice): un
+        ``max_input_tokens`` di 6000 token corrisponde grosso modo a
+        24000 caratteri. Chi chiama puo' passare un valore derivato
+        direttamente da ``settings.max_input_tokens * 4`` per tenere i
+        due limiti coerenti tra loro.
+        """
         if audience not in ("dev", "non-dev"):
             raise ValueError(
                 f"audience non valida: {audience!r} (attesi 'dev' o "
@@ -79,6 +91,7 @@ class EvidenceJudge:
         self.llm = llm
         self.mutation_threshold = mutation_threshold
         self.audience = audience
+        self.max_input_chars = max_input_chars
 
     def judge(
         self,
@@ -203,7 +216,10 @@ class EvidenceJudge:
             target_file=evidence.target_file,
             status=status.upper(),
             evidence_text=self._render_evidence(
-                evidence, evidence_source, audience=self.audience
+                evidence,
+                evidence_source,
+                audience=self.audience,
+                max_input_chars=self.max_input_chars,
             ),
             fix_instruction=fix_instruction,
         )
@@ -228,6 +244,7 @@ class EvidenceJudge:
         evidence: EvidenceBundle,
         source: str,
         audience: str = "dev",
+        max_input_chars: int = 24000,
     ) -> str:
         is_non_dev = audience == "non-dev"
         parts: list[str] = []
@@ -286,6 +303,16 @@ class EvidenceJudge:
             parts.append(f"- Nota: {note}")
 
         if source:
-            parts.append(f"\nSorgente del file:\n```python\n{source[:6000]}\n```")
+            truncated_source = source[: min(max_input_chars, len(source))]
+            parts.append(
+                f"\nSorgente del file:\n```python\n{truncated_source}\n```"
+            )
 
-        return "\n".join(parts)
+        rendered = "\n".join(parts)
+
+        if len(rendered) > max_input_chars:
+            truncation_note = "\n...(evidenze troncate)"
+            cutoff = max(max_input_chars - len(truncation_note), 0)
+            rendered = rendered[:cutoff] + truncation_note
+
+        return rendered
