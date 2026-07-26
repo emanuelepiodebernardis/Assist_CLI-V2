@@ -21,6 +21,18 @@ from assist.verification.ts_runner import (
 
 REAL_TEMPLATE_DIR = "/tmp/ts_template"
 
+_template_presente = (
+    Path(REAL_TEMPLATE_DIR) / "node_modules" / ".bin" / "vitest"
+).exists()
+
+# I test che eseguono vitest reale richiedono il template installato
+# (in CI viene creato da un passo del workflow; in locale vedi
+# docs/typescript.md). Senza template si skippano, non falliscono.
+richiede_template = pytest.mark.skipif(
+    not _template_presente,
+    reason="template TS non installato in " + REAL_TEMPLATE_DIR,
+)
+
 
 @pytest.fixture(autouse=True)
 def _reset_cache(monkeypatch):
@@ -35,6 +47,7 @@ def _reset_cache(monkeypatch):
 # --- ts_template_dir / ts_available --------------------------------------
 
 
+@richiede_template
 def test_ts_available_true_con_template_reale():
     assert ts_template_dir() == Path(REAL_TEMPLATE_DIR)
     assert ts_available() is True
@@ -74,6 +87,7 @@ def test_run_vitest_senza_template_non_solleva_eccezioni(monkeypatch):
 # --- TsSandboxRunner.run_vitest: test che passano -------------------------
 
 
+@richiede_template
 def test_run_vitest_test_passanti():
     runner = TsSandboxRunner(timeout_seconds=40)
 
@@ -103,6 +117,7 @@ def test_run_vitest_test_passanti():
 # --- TsSandboxRunner.run_vitest: test che falliscono ----------------------
 
 
+@richiede_template
 def test_run_vitest_test_falliti():
     runner = TsSandboxRunner(timeout_seconds=40)
 
