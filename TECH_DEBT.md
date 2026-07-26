@@ -14,8 +14,9 @@ Gli item sono classificati per:
 - **Stato**: `open` (da fare), `resolved` (risolto in una versione
   successiva), `wontfix` (deciso di non risolvere).
 
-Versione documento: aggiornato al **2026-05-16**, post-completamento
-dell'epic 3.6 (task `repo`).
+Versione documento: aggiornato al **2026-07-25** (v5.0.1). Vedi la
+sezione [11. Aggiornamento v5.0.1](#11-aggiornamento-v501-2026-07-25)
+per lo stato corrente di ogni item.
 
 ---
 
@@ -767,3 +768,48 @@ emerse dallo smoke test del task `repo` (vedere item 5.1, 5.2, 6.1,
 
 I restanti items sono rifiniture o miglioramenti incrementali da
 affrontare quando il tempo lo permette.
+
+
+---
+
+## 11. Aggiornamento v5.0.1 (2026-07-25)
+
+Stato degli item alla luce del lavoro v4.x-v5.0.1 (Proof Engine).
+
+### Risolti
+
+| Item | Risoluzione |
+|---|---|
+| 2.x FileReader crash su file non-UTF-8 | **RESOLVED v5.0.1** — `assist/utils/safe_text.py`: BOM UTF-8/16/32, fallback cp1252 con replace, `BinaryFileError` chiaro sui binari. Cablato in FileReader e nella pipeline verify (Python e TS) |
+| 3.x Rich Console crash su output pipato (Windows) | **RESOLVED v5.0.1** — stream riconfigurati con `errors="replace"` all'avvio del CLI, prima della creazione della Console. Verificato con stdout cp1252 simulato |
+| 4.x Path resolution dipendente dalla cwd | **RESOLVED** — ConfigLoader (v4.3) e SkillResolver (v5.0.1) hanno fallback alla root del package: tutti i comandi funzionano da qualunque directory |
+| 1.1 `max_tokens` hardcoded | **RESOLVED (parziale)** — il client OpenAI-compatible (v4.9) espone max_tokens; il client Anthropic mantiene il default 8000 configurato in epic 3.6 |
+| Solo Python | **RESOLVED v5.0** — flusso TypeScript nativo (vitest + fast-check); mutation TS via StrykerJS wrapper |
+| 8.x quality_score ambiguo | **SUPERSEDED nel flusso `verify`** — il verdetto e' deciso da evidenze deterministiche (sandbox, mutation, coverage), non da un punteggio di self-check. Resta com'era nei comandi legacy |
+
+### Mitigati
+
+| Item | Stato |
+|---|---|
+| 9.1 Rate limit su prompt grandi | Mitigato: split fast/strong, troncamenti nei prompt del judge, retry su 429 nel client OpenAI-compatible, modalita' `--provider none`. Manca retry nel client Anthropic |
+| 9.x Scansione repo lenta senza cache | Mitigato solo lato verify (cache mutanti per hash, per-test coverage). Il comando `repo` legacy e' invariato |
+
+### Aperti (invariati, fuori dal percorso critico del prodotto)
+
+- 5.x Falsi positivi di dead-code/isolated-module detector (comando `repo`)
+- 6.x Orchestrator fan-out alto, PromptBuilder/OutputFormatter god class,
+  `TaskInput` con campi opzionali non vincolati (solo comandi legacy;
+  il flusso `verify` non passa dall'orchestrator)
+- 7.x Test tautologici degli agent legacy
+- `max_input_tokens` dichiarato in Settings ma non usato
+
+### Nuovi item (introdotti dal lavoro v4.x-v5.0)
+
+- **TS-1 (medium)**: fix loop validato non disponibile per TypeScript
+- **TS-2 (medium)**: dipendenze locali multi-file non raccolte nel flusso TS
+- **TS-3 (low)**: mutation testing TS su file singolo richiede progetto
+  StrykerJS configurato (`docs/typescript.md`)
+- **BM-1 (high, non-codice)**: benchmark su codebase terze reali assente —
+  i 20 casi del corpus sono sintetici, scritti dall'autore
+- **AN-1 (low)**: il client Anthropic non ha retry su 429/5xx (il client
+  OpenAI-compatible si)
