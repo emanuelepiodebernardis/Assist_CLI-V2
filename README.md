@@ -40,6 +40,22 @@ That means Proof Engine is **model-agnostic**:
 Model quality only affects the optional extras (generated boundary/property
 tests, explanations, proposed fixes) — never the verdict.
 
+### Real-world benchmark (v5.2)
+
+Beyond the synthetic corpus, the same evidence-only pipeline was run
+against **real open-source code with the maintainers' own tests**
+(10 module/test pairs from boltons, humanize and toolz, pinned commits,
+zero LLM calls — `benchmark/run_realworld.py`):
+
+- average mutation score of real-world test suites: **66%**
+- range: **16% to 88%** — well-tested modules (boltons `mathutils`,
+  humanize `filesize`) reach 80-88%, while an 814-line module with a
+  single test (`statsutils`) scores 16%
+- the engine's verdict tracked test quality exactly: rich suites → `pass`,
+  thin suites → `warn` with the untested lines named
+
+Full table and methodology in `benchmark/realworld_results.md`.
+
 ## TypeScript support (v5.0)
 
 `assist verify file.ts` works end to end:

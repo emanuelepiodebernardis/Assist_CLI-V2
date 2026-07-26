@@ -1,0 +1,22 @@
+{
+  "name": "toolz__utils",
+  "project": "toolz",
+  "module": "toolz/toolz/utils.py",
+  "commit": "568c2b8393973cd172a466546c9d95779c452438",
+  "error": "",
+  "verdict": "pass",
+  "baseline_passed": true,
+  "tests_collected": 1,
+  "tests_failed": 0,
+  "total_mutants": 5,
+  "killed": 4,
+  "mutation_score": 0.8,
+  "surviving": [
+    {
+      "lineno": 4,
+      "description": "rimozione return anticipato"
+    }
+  ],
+  "duration_seconds": 3.068385210000997,
+  "notes": []
+}

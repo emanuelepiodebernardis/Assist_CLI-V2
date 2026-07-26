@@ -811,8 +811,11 @@ Stato degli item alla luce del lavoro v4.x-v5.0.1 (Proof Engine).
   (`ts_deps.py`: import relativi risolti ricorsivamente in sandbox)
 - **TS-3 (low)**: mutation testing TS su file singolo richiede progetto
   StrykerJS configurato (`docs/typescript.md`) — open
-- **BM-1 (high, non-codice)**: benchmark su codebase terze reali assente —
-  i 20 casi del corpus sono sintetici, scritti dall'autore — open
+- **BM-1**: benchmark su codebase terze reali — **RESOLVED v5.2**
+  (`benchmark/run_realworld.py`: 10 coppie modulo/test da boltons,
+  humanize, toolz a commit pinnati; mutation score medio dei test
+  reali 66.1%, range 16-88%; report in
+  `benchmark/realworld_results.md` con metodologia e riproduzione)
 - **AN-1**: retry client Anthropic — **RESOLVED v5.1** (max 2 retry
   esponenziali su 429/5xx/connessione, altri errori propagati subito)
 

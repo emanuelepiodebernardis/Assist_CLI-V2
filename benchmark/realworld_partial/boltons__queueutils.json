@@ -1,0 +1,32 @@
+{
+  "name": "boltons__queueutils",
+  "project": "boltons",
+  "module": "boltons/boltons/queueutils.py",
+  "commit": "e66cade323f5c11cebb4bd0f099e634b245adccd",
+  "error": "",
+  "verdict": "warn",
+  "baseline_passed": true,
+  "tests_collected": 2,
+  "tests_failed": 0,
+  "total_mutants": 24,
+  "killed": 14,
+  "mutation_score": 0.583,
+  "surviving": [
+    {
+      "lineno": 155,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 167,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 105,
+      "description": "costante intera 0 -> 1 (off-by-one)"
+    }
+  ],
+  "duration_seconds": 22.227675882000767,
+  "notes": [
+    "Sandbox multi-file: incluse 2 dipendenze locali."
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "boltons__strutils",
+  "project": "boltons",
+  "module": "boltons/boltons/strutils.py",
+  "commit": "e66cade323f5c11cebb4bd0f099e634b245adccd",
+  "error": "",
+  "verdict": "pass",
+  "baseline_passed": true,
+  "tests_collected": 19,
+  "tests_failed": 0,
+  "total_mutants": 25,
+  "killed": 16,
+  "mutation_score": 0.64,
+  "surviving": [
+    {
+      "lineno": 108,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 110,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 140,
+      "description": "negazione condizione if"
+    }
+  ],
+  "duration_seconds": 14.491213789999165,
+  "notes": []
+}

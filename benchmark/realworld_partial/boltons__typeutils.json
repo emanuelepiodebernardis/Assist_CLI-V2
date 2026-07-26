@@ -1,0 +1,30 @@
+{
+  "name": "boltons__typeutils",
+  "project": "boltons",
+  "module": "boltons/boltons/typeutils.py",
+  "commit": "e66cade323f5c11cebb4bd0f099e634b245adccd",
+  "error": "",
+  "verdict": "warn",
+  "baseline_passed": true,
+  "tests_collected": 3,
+  "tests_failed": 0,
+  "total_mutants": 16,
+  "killed": 5,
+  "mutation_score": 0.312,
+  "surviving": [
+    {
+      "lineno": 80,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 162,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 100,
+      "description": "operatore booleano or -> and"
+    }
+  ],
+  "duration_seconds": 7.885725121999712,
+  "notes": []
+}

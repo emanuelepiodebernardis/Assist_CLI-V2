@@ -169,3 +169,11 @@ eventualmente come evidenza opzionale futura).
 - [x] Retry esponenziale nel client Anthropic (429/5xx/connessione)
 - [x] Dead-code detector senza falsi positivi su dunder/fixture/decoratori
 - [x] `max_input_tokens` collegato al judge (troncamento evidenze)
+
+
+## v5.2 — Benchmark real-world (luglio 2026)
+
+- [x] BM-1 chiuso: 10 coppie modulo/test da 3 progetti open source
+  reali (boltons, humanize, toolz) a commit pinnati, pipeline
+  evidence-only. Mutation score medio dei test dei manutentori: 66.1%
+  (16-88%). Il verdetto segue la qualita' reale dei test.

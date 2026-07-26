@@ -1,0 +1,30 @@
+{
+  "name": "boltons__mathutils",
+  "project": "boltons",
+  "module": "boltons/boltons/mathutils.py",
+  "commit": "e66cade323f5c11cebb4bd0f099e634b245adccd",
+  "error": "",
+  "verdict": "pass",
+  "baseline_passed": true,
+  "tests_collected": 11,
+  "tests_failed": 0,
+  "total_mutants": 25,
+  "killed": 22,
+  "mutation_score": 0.88,
+  "surviving": [
+    {
+      "lineno": 66,
+      "description": "operatore di confronto < -> <="
+    },
+    {
+      "lineno": 164,
+      "description": "operatore di confronto > -> >="
+    },
+    {
+      "lineno": 173,
+      "description": "operatore di confronto >= -> >"
+    }
+  ],
+  "duration_seconds": 12.766932882001129,
+  "notes": []
+}

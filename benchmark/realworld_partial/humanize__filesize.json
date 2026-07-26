@@ -1,0 +1,30 @@
+{
+  "name": "humanize__filesize",
+  "project": "humanize",
+  "module": "humanize/src/humanize/filesize.py",
+  "commit": "87dfb1c03f206f01bb9b597b1e290d72f467df9a",
+  "error": "",
+  "verdict": "pass",
+  "baseline_passed": true,
+  "tests_collected": 20,
+  "tests_failed": 0,
+  "total_mutants": 25,
+  "killed": 22,
+  "mutation_score": 0.88,
+  "surviving": [
+    {
+      "lineno": 57,
+      "description": "operatore di confronto < -> <="
+    },
+    {
+      "lineno": 64,
+      "description": "operatore di confronto < -> <="
+    },
+    {
+      "lineno": 66,
+      "description": "operatore di confronto < -> <="
+    }
+  ],
+  "duration_seconds": 12.772015211001417,
+  "notes": []
+}

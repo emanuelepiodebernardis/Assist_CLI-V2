@@ -1,0 +1,32 @@
+{
+  "name": "boltons__dictutils",
+  "project": "boltons",
+  "module": "boltons/boltons/dictutils.py",
+  "commit": "e66cade323f5c11cebb4bd0f099e634b245adccd",
+  "error": "",
+  "verdict": "pass",
+  "baseline_passed": true,
+  "tests_collected": 29,
+  "tests_failed": 0,
+  "total_mutants": 25,
+  "killed": 20,
+  "mutation_score": 0.8,
+  "surviving": [
+    {
+      "lineno": 173,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 254,
+      "description": "negazione condizione if"
+    },
+    {
+      "lineno": 306,
+      "description": "negazione condizione if"
+    }
+  ],
+  "duration_seconds": 18.47276176000014,
+  "notes": [
+    "Sandbox multi-file: incluse 1 dipendenze locali."
+  ]
+}
